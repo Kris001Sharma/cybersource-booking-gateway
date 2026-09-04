@@ -9,6 +9,9 @@ export const CATALOG = {
   "act-hike": { name: "Guided Hike", price: 20, type: "activity" },
   "act-spa": { name: "Spa Session", price: 30, type: "activity" },
   "act-dinner": { name: "Private Dinner", price: 25, type: "activity" },
+  // Not a real bookable item — only for validating gateway connectivity
+  // with a minimal, safe amount. Remove before real production use.
+  "test-item": { name: "Connectivity Test", price: 1, type: "test" },
 };
 
 export function priceCart(skus) {

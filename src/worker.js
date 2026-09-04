@@ -60,9 +60,14 @@ async function handleSession(request, env) {
   });
 
   // 2. Ask CyberSource for a Microform capture context (sandbox).
+  // Use an explicit configured origin in production (never trust the Host
+  // header for anything security-relevant); fall back to the request's own
+  // origin for local dev. Access the dev server via "localhost", not
+  // "127.0.0.1" — CyberSource only allows http:// for the literal host
+  // "localhost".
+  const origin = env.CHECKOUT_ORIGIN || url_origin(request);
   const capture = await cybersourceRequest(env, "POST", "/microform/v2/sessions", {
-    targetOrigins: [url_origin(request)],
-    // targetOrigins: ["http://localhost:8787"],
+    targetOrigins: [origin],
     clientVersion: "v2",
     allowedCardNetworks: ["VISA", "MASTERCARD"],
     allowedPaymentTypes: ["CARD"],
@@ -82,25 +87,63 @@ async function handleSession(request, env) {
 
 // ---- /api/charge : take the Microform transient token, actually charge ----
 async function handleCharge(request, env) {
-  const { bookingId, transientToken, amount, currency = "USD" } = await request.json();
+  const { bookingId, transientToken, amount, currency = "USD", billTo } = await request.json();
+
+  // Only currencies NIMB has actually confirmed the merchant account can
+  // settle in should ever reach CyberSource. Sending an unconfirmed
+  // currency has produced acquirer-level rejections in testing — treat
+  // this as a hard allow-list, not a default.
+  const SUPPORTED_CURRENCIES = ["USD"]; // update only after NIMB confirms others
+  if (!SUPPORTED_CURRENCIES.includes(currency)) {
+    return json({ error: "Unsupported currency", detail: currency }, 400);
+  }
+
+  const required = ["firstName", "lastName", "email", "address1", "locality", "country"];
+  const missing = required.filter((f) => !billTo?.[f]);
+  if (missing.length) {
+    return json({ error: "Missing billing fields", detail: missing }, 400);
+  }
 
   const paymentPayload = {
     clientReferenceInformation: { code: bookingId },
+    processingInformation: {
+      commerceIndicator: "internet",
+      // Auth-only — validates the gateway/processor connection without
+      // capturing (settling) real funds. Void the resulting authorization
+      // in Business Center right after testing.
+      capture: false,
+    },
     tokenInformation: { transientTokenJwt: transientToken },
     orderInformation: {
-      amountDetails: { totalAmount: String(amount), currency },
+      amountDetails: { totalAmount: Number(amount).toFixed(2), currency },
+      billTo,
     },
   };
 
   const result = await cybersourceRequest(env, "POST", "/pts/v2/payments", paymentPayload);
 
-  if (!result.ok) {
+  // The Payments API call is synchronous — CyberSource tells us right here
+  // whether it was authorized. This is the primary confirmation signal for
+  // this flow (unlike Pay by Link, where the charge happens later/elsewhere
+  // and a webhook is the only way to find out). The webhook stays wired up
+  // as a secondary reconciliation check, not the thing we wait on.
+  const authorized = result.ok && result.data.status === "AUTHORIZED";
+
+  await fetch(env.SHEET_WEBAPP_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "update_booking_status",
+      bookingId,
+      status: authorized ? "paid" : "failed",
+    }),
+  });
+
+  if (!authorized) {
     return json({ error: "Charge failed", detail: result.data }, 402);
   }
 
-  // Booking stays "pending" here — the webhook is what actually marks it
-  // paid. This response is just UX feedback for the customer.
-  return json({ status: "submitted", cybsResponse: result.data });
+  return json({ status: "paid", cybsResponse: result.data });
 }
 
 // ---- /api/webhook/cybersource : source of truth for "did payment succeed" ----
@@ -181,8 +224,32 @@ function handleCheckoutPage(url) {
     <label><input type="radio" name="pay" value="deposit" checked> Pay deposit: $<span id="dep-amt"></span></label><br>
     <label><input type="radio" name="pay" value="full"> Pay in full: $<span id="full-amt"></span></label>
   </div>
+
+  <h3>Billing details</h3>
+  <input id="bill-first" placeholder="First name"><br>
+  <input id="bill-last" placeholder="Last name"><br>
+  <input id="bill-email" placeholder="Email" type="email"><br>
+  <input id="bill-address" placeholder="Address line 1"><br>
+  <input id="bill-city" placeholder="City"><br>
+  <input id="bill-state" placeholder="State/Province (e.g. CA)"><br>
+  <input id="bill-zip" placeholder="Postal code"><br>
+  <input id="bill-country" placeholder="Country code (e.g. US)" value="US"><br>
+
+  <h3>Card details</h3>
   <div id="card-number" style="height:40px;border:1px solid #ccc;margin:8px 0"></div>
-  <div id="security-code" style="height:40px;border:1px solid #ccc;margin:8px 0"></div>
+  <div style="display:flex;gap:8px;margin:8px 0">
+    <select id="exp-month">
+      <option value="01">01</option><option value="02">02</option><option value="03">03</option>
+      <option value="04">04</option><option value="05">05</option><option value="06">06</option>
+      <option value="07">07</option><option value="08">08</option><option value="09">09</option>
+      <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+    </select>
+    <select id="exp-year">
+      <option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option>
+      <option value="2029">2029</option><option value="2030">2030</option>
+    </select>
+    <div id="security-code" style="height:40px;width:80px;border:1px solid #ccc"></div>
+  </div>
   <button id="pay-btn" disabled>Pay</button>
   <div id="msg"></div>
 
@@ -233,7 +300,10 @@ function handleCheckoutPage(url) {
         sessionInfo = s;
         const jwt = s.captureContext; // the raw JWT string from /api/session
         const { ctx } = decodeJwtPayload(jwt);
-        const { clientLibrary, clientLibraryIntegrity } = ctx[0];
+        // NOTE: clientLibrary/clientLibraryIntegrity are nested under
+        // ctx[0].data, not ctx[0] directly — this was the earlier bug that
+        // caused the script src to be "undefined".
+        const { clientLibrary, clientLibraryIntegrity } = ctx[0].data;
 
         return loadMicroformScript(clientLibrary, clientLibraryIntegrity).then(() => {
           const flex = new Flex(jwt);
@@ -242,13 +312,31 @@ function handleCheckoutPage(url) {
           microform.createField('securityCode', { placeholder: 'CVV' }).load('#security-code');
           document.getElementById('pay-btn').disabled = false;
         });
+      })
+      .catch(e => {
+        document.getElementById('msg').textContent = 'Setup error: ' + e.message;
+        console.error(e);
       });
 
     document.getElementById('pay-btn').addEventListener('click', () => {
       const payAmount = document.querySelector('input[name=pay]:checked').value;
       const amount = payAmount === 'full' ? quote.deposits.full : quote.deposits.deposit;
 
-      microform.createToken({}, (err, token) => {
+      const billTo = {
+        firstName: document.getElementById('bill-first').value,
+        lastName: document.getElementById('bill-last').value,
+        email: document.getElementById('bill-email').value,
+        address1: document.getElementById('bill-address').value,
+        locality: document.getElementById('bill-city').value,
+        administrativeArea: document.getElementById('bill-state').value,
+        postalCode: document.getElementById('bill-zip').value,
+        country: document.getElementById('bill-country').value
+      };
+
+      microform.createToken({
+        expirationMonth: document.getElementById('exp-month').value,
+        expirationYear: document.getElementById('exp-year').value
+      }, (err, token) => {
         if (err) {
           document.getElementById('msg').textContent = 'Card error: ' + err.message;
           return;
@@ -259,13 +347,14 @@ function handleCheckoutPage(url) {
           body: JSON.stringify({
             bookingId: sessionInfo.bookingId,
             transientToken: token,
-            amount
+            amount,
+            billTo
           })
         })
           .then(r => r.json())
           .then(res => {
             document.getElementById('msg').textContent =
-              res.error ? ('Payment failed: ' + JSON.stringify(res.detail)) : 'Payment submitted — confirming...';
+              res.error ? ('Payment failed: ' + JSON.stringify(res.detail)) : 'Payment confirmed — booking is paid.';
           });
       });
     });
