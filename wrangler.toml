@@ -7,8 +7,9 @@ compatibility_date = "2024-01-01"
 # CYBS_KEY_ID
 # CYBS_SHARED_SECRET
 # SHEET_WEBAPP_URL   (the Google Apps Script Web App URL, can be a plain var for POC)
+# CYBS_WEBHOOK_SECRET (/kms/egress/v2/keys-sym)
 
 [vars]
-CYBS_ENV = "sandbox" # apitest.cybersource.com for sandbox, api.cybersource.com for prod
+CYBS_ENV = "prod" # apitest.cybersource.com for sandbox, api.cybersource.com for prod
 SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwyiw49qxEFEiyILPqLSFlmKlgdVOAbGF1UoW49UslDWcfVQ6XtiQH7IZzlT-UZWaBPqA/exec"
 # CHECKOUT_ORIGIN = "https://book.yourresort.com"

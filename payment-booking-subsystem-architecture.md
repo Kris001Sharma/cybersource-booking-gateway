@@ -156,3 +156,15 @@ You can hand this paragraph directly to Claude Code (or a similar tool) to scaff
 ---
 
 **Bottom line:** the whole system is one small hosted checkout service with five endpoints, a Google Sheet as the database, and CyberSource Microform for PCI-safe card capture. Any existing site — static or dynamic — integrates by linking to it or calling its API, so it drops into Strikingly today and into whatever you build next with no rework of the payment logic itself.
+
+
+
+
+
+### User findings ### ! IMPORTANT
+
+**Rest API** REST API transactions specifically fail until a merchant-specific outlet/terminal identifier is attached to that particular processing connection — separate from whatever Pay by Link already uses.
+
+
+
+
