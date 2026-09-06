@@ -11,6 +11,8 @@ compatibility_date = "2024-01-01"
 
 [vars]
 CYBS_ENV = "production" # apitest.cybersource.com for sandbox, api.cybersource.com for production
+CYBS_CURRENCY = "NPR"
+
 SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwS4nlG0mzm6m55PJyZuO3hH08uny-FP9s1ye4sOOH4w7Vq0psZzekGsQRFWIk6AWhZWg/exec"
 # CHECKOUT_ORIGIN = "https://book.yourresort.com"
 

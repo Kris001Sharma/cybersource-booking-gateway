@@ -23,7 +23,7 @@ export default {
     if (p === "/api/microform/charge" && request.method === "POST") return microform.charge(request, env);
     if (p === "/checkout/microform") return microform.renderCheckoutPage(url);
 
-    if (p === "/api/paylink/create" && request.method === "POST") return paylink.createLink(request, env);
+    if (p === "/api/paylink/create" && request.method === "POST") return paylink.createLink(request, env, ctx);
     if (p === "/checkout/paylink") return paylink.renderCheckoutPage(url);
 
     if (p === "/checkout/unified") return unifiedCheckout.renderCheckoutPage();
@@ -59,6 +59,12 @@ export default {
   },
 };
 
+// Polling-based auto-reconciliation was confirmed NOT VIABLE: neither the
+// payment-link status field nor the transaction record carries our
+// purchaseNumber/bookingId back (verified against real completed
+// transactions). Rather than silently do nothing useful, this now reports
+// what's pending so it can be checked manually against Business Center
+// while the webhook subscription is still PENDING_REVIEW.
 async function runReconciliation(env) {
   const listResp = await fetch(env.SHEET_WEBAPP_URL, {
     method: "POST",
@@ -66,23 +72,8 @@ async function runReconciliation(env) {
     body: JSON.stringify({ action: "list_pending" }),
   });
   const { pending } = await listResp.json();
-  if (!pending?.length) return json({ checked: 0 });
-
-  let updated = 0;
-  for (const b of pending) {
-    // purchaseNumber is deterministically derived from bookingId the same
-    // way paylink.js computes it at creation time — recomputed here rather
-    // than stored as a separate field.
-    const purchaseNumber = b.bookingId.replace(/-/g, "").slice(0, 20);
-    const result = await cybersourceRequest(env, "GET", `/ipl/v2/payment-links/${purchaseNumber}`);
-    // NOTE: exact status value for a completed link isn't confirmed yet —
-    // check a real completed link's response and adjust this condition.
-    if (result.ok && (result.data.status === "COMPLETED" || result.data.status === "PAID")) {
-      await updateBookingStatus(env, { bookingId: b.bookingId, status: "paid" });
-      updated++;
-    }
-  }
-  return json({ checked: pending.length, updated });
+  console.log(`[reconcile] ${pending?.length || 0} bookings still pending manual verification in Business Center`);
+  return json({ pendingCount: pending?.length || 0, pending, note: "Auto-verification not possible via API — check Business Center Transaction Search by amount/date/name until webhook is ACTIVE." });
 }
 
 function handleQuote(url) {

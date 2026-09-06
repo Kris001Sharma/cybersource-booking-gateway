@@ -7,23 +7,28 @@ import { priceCart, computeDepositOptions } from "../../catalog.js";
 import { cybersourceRequest } from "../../cybersource.js";
 import { createBooking, updateBookingStatus } from "../../bookings.js";
 
-export async function createLink(request, env) {
-  const { skus, payAmount } = await request.json();
+export async function createLink(request, env, ctx) {
+  const t0 = Date.now();
+  const { skus, payAmount, guest } = await request.json();
   const { items, total } = priceCart(skus);
   const { deposit, full } = computeDepositOptions(total);
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  await createBooking(env, { bookingId, items, total, amountDue: amount });
+  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest });
+  if (ctx?.waitUntil) ctx.waitUntil(bookingPromise);
+  else await bookingPromise;
 
+  console.log(`[timing] before CyberSource call: ${Date.now() - t0}ms`);
   const result = await cybersourceRequest(env, "POST", "/ipl/v2/payment-links/", {
     processingInformation: { linkType: "PURCHASE" },
     purchaseInformation: { purchaseNumber: bookingId.replace(/-/g, "").slice(0, 20) },
     orderInformation: {
-      amountDetails: { currency: env.CYBS_CURRENCY || "USD", totalAmount: String(amount) },
+      amountDetails: { currency: env.CYBS_CURRENCY || "NPR", totalAmount: String(amount) },
       lineItems: items.map((i) => ({ productName: i.name, unitPrice: String(i.price) })),
     },
   });
+  console.log(`[timing] after CyberSource call: ${Date.now() - t0}ms`);
 
   if (!result.ok) {
     return json({ error: "Could not create payment link", detail: result.data }, 502);
@@ -52,6 +57,12 @@ export function renderCheckoutPage(url) {
     <label><input type="radio" name="pay" value="deposit" checked> Pay deposit: <span id="dep-amt"></span></label><br>
     <label><input type="radio" name="pay" value="full"> Pay in full: <span id="full-amt"></span></label>
   </div>
+
+  <h3>Your details</h3>
+  <input id="guest-name" placeholder="Full name"><br>
+  <input id="guest-email" placeholder="Email" type="email"><br>
+  <input id="guest-phone" placeholder="Phone"><br>
+
   <button id="continue-btn" disabled>Continue to payment</button>
   <div id="msg"></div>
 
@@ -73,12 +84,17 @@ export function renderCheckoutPage(url) {
       });
 
     document.getElementById('continue-btn').addEventListener('click', () => {
+      const name = document.getElementById('guest-name').value;
+      const email = document.getElementById('guest-email').value;
+      const phone = document.getElementById('guest-phone').value;
+      if (!name || !email) { document.getElementById('msg').textContent = 'Name and email are required.'; return; }
+
       document.getElementById('continue-btn').disabled = true;
       document.getElementById('msg').textContent = 'Creating your payment link...';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
       fetch('/api/paylink/create', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skus: items.split(','), payAmount })
+        body: JSON.stringify({ skus: items.split(','), payAmount, guest: { name, email, phone } })
       })
         .then(r => r.json())
         .then(res => {
