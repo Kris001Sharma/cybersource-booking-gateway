@@ -6,10 +6,11 @@
 // Expects a "Bookings" sheet with header row:
 // bookingId | items | total | amountDue | guest | status | createdAt
 
+
 function doPost(e) {
   const body = JSON.parse(e.postData.contents);
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Bookings");
-
+ 
   if (body.action === "create_booking") {
     sheet.appendRow([
       body.bookingId,
@@ -22,7 +23,7 @@ function doPost(e) {
     ]);
     return respond({ ok: true });
   }
-
+ 
   if (body.action === "update_booking_status") {
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
@@ -33,12 +34,22 @@ function doPost(e) {
     }
     return respond({ ok: true });
   }
-
+ 
+  if (body.action === "list_pending") {
+    const data = sheet.getDataRange().getValues();
+    const pending = [];
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][5] === "pending") pending.push({ bookingId: data[i][0], createdAt: data[i][6] });
+    }
+    return respond({ ok: true, pending });
+  }
+ 
   return respond({ ok: false, error: "Unknown action" });
 }
-
+ 
 function respond(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
   );
 }
+ 

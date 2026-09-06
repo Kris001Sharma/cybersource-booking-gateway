@@ -1,5 +1,6 @@
 import { priceCart, computeDepositOptions } from "./catalog.js";
 import { updateBookingStatus } from "./bookings.js";
+import { cybersourceRequest } from "./cybersource.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
 import * as paylink from "./methods/hosted/paylink.js";
@@ -40,12 +41,49 @@ export default {
     // ---- Shared webhook endpoint — one URL for all methods, dispatches by
     // recognizing which module's resource shape the payload matches. ----
     if (p === "/api/webhook/health") return new Response("ok");
+    if (p === "/" || p === "/landing") return renderMinimalLanding();
     if ((p === "/api/webhook/cybersource" || p === "/api/webhook/cybersource-v2") && request.method === "POST")
       return handleWebhook(request, env);
 
+    // Manual trigger for testing reconciliation without waiting for the cron
+    if (p === "/api/reconcile" && request.method === "POST") return runReconciliation(env);
+
     return new Response("Not found", { status: 404 });
   },
+
+  // Runs on the cron schedule set in wrangler.toml — reconciliation backup
+  // for while the webhook is PENDING_REVIEW, and permanently afterward as
+  // a safety net in case a webhook delivery is ever missed.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runReconciliation(env));
+  },
 };
+
+async function runReconciliation(env) {
+  const listResp = await fetch(env.SHEET_WEBAPP_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "list_pending" }),
+  });
+  const { pending } = await listResp.json();
+  if (!pending?.length) return json({ checked: 0 });
+
+  let updated = 0;
+  for (const b of pending) {
+    // purchaseNumber is deterministically derived from bookingId the same
+    // way paylink.js computes it at creation time — recomputed here rather
+    // than stored as a separate field.
+    const purchaseNumber = b.bookingId.replace(/-/g, "").slice(0, 20);
+    const result = await cybersourceRequest(env, "GET", `/ipl/v2/payment-links/${purchaseNumber}`);
+    // NOTE: exact status value for a completed link isn't confirmed yet —
+    // check a real completed link's response and adjust this condition.
+    if (result.ok && (result.data.status === "COMPLETED" || result.data.status === "PAID")) {
+      await updateBookingStatus(env, { bookingId: b.bookingId, status: "paid" });
+      updated++;
+    }
+  }
+  return json({ checked: pending.length, updated });
+}
 
 function handleQuote(url) {
   const skus = (url.searchParams.get("items") || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -93,6 +131,31 @@ function handleDebugEnv(env) {
     report[k] = v === undefined ? "MISSING" : v === "" ? "EMPTY_STRING" : `OK (length=${v.length})`;
   }
   return json(report);
+}
+
+// Bare-bones smoke test for the full click-through shape (landing -> pick
+// items -> checkout -> pay). NOT the real UI — that's handed off separately
+// per HANDOFF_BOOKING_UI.md. No dates, no styling, just proves the wiring.
+function renderMinimalLanding() {
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Sapana Village — Book (test)</title></head>
+<body>
+  <h2>Pick items (smoke test — not final UI)</h2>
+  <label><input type="checkbox" value="room-double"> Double Room — $70</label><br>
+  <label><input type="checkbox" value="room-suite"> Suite — $120</label><br>
+  <label><input type="checkbox" value="act-hike"> Guided Hike — $20</label><br>
+  <label><input type="checkbox" value="act-spa"> Spa Session — $30</label><br>
+  <label><input type="checkbox" value="test-item"> Connectivity Test — $1</label><br><br>
+  <button onclick="go()">Continue to checkout</button>
+  <script>
+    function go() {
+      const checked = [...document.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+      if (!checked.length) { alert('Pick at least one item'); return; }
+      location.href = '/checkout?items=' + checked.join(',');
+    }
+  </script>
+</body></html>`;
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 function json(obj, status = 200) {
