@@ -54,6 +54,8 @@ export async function notImplemented() {
   return json({ error: "Unified Checkout charge not implemented — shares the blocked /pts/v2/payments endpoint with Microform" }, 501);
 }
 
+export const charge = notImplemented;
+
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 }

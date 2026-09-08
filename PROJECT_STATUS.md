@@ -51,11 +51,22 @@ poc-booking/
 - ✅ Confirmed working: link creation, hosted payment page, full 3DS/OTP, real fund deduction.
 - ✅ Webhook subscription created: `webhookId: 5ab8e3eb-e5fc-2094-e063-90588d0aaaba`, `status: PENDING_REVIEW`. Per CyberSource docs, new webhook URLs take 1–2 business days to validate/approve — this is expected, not an error. Check status via `GET /notification-subscriptions/v2/webhooks/{webhookId}`.
 - ✅ Digital signature key obtained self-service (no NIMB contact needed) and set as `CYBS_WEBHOOK_SECRET`.
-- 🆕 **Reconciliation polling added as a backup** (`/api/reconcile`, plus a cron trigger every 5 minutes in `wrangler.toml`) — doesn't depend on the webhook being active, works today. Polls pending bookings and checks their Pay by Link status directly. **Not yet verified:** the exact `status` value CyberSource returns for a completed link (currently guessing `COMPLETED`/`PAID` — confirm against a real completed link's response and fix if wrong).
+- 🔴 **Automated reconciliation confirmed not viable via API.** Investigated thoroughly: (1) `/ipl/v2/payment-links/{id}` status field reflects link lifecycle, not payment outcome. (2) `clientReferenceInformation.code` is dropped/not stored by the link-creation endpoint. (3) Confirmed via a real completed transaction's full detail record that `purchaseNumber` appears nowhere in it — no field connects a completed transaction back to anything we set at creation. **This is a hard limitation, not a solvable query problem.** The Worker's `/api/reconcile` and cron now report a pending-bookings list for manual cross-checking against Business Center (by amount/date/name), rather than falsely claiming to auto-verify.
+- 🟡 **Webhook remains the only real automated path.** Subscription created, still `PENDING_REVIEW` (within CyberSource's stated 1–2 business day window). Once `ACTIVE`, this becomes the actual confirmation mechanism — nothing else needs to change once it works.
+- **Interim process:** manually cross-check the Sheet's pending bookings against Business Center Transaction Search (UI supports amount/date/name filters even though the API doesn't expose a usable cross-reference field).
 - **Next action:** wait out the webhook review window; in the meantime, rely on the reconciliation cron + manual Business Center checks.
 
+### Module 1 — Microform (`methods/embedded/microform.js`)
+**Status: 🟡 Code-complete and verified correct, blocked on account activation.**
+- ✅ Confirmed working: tokenization, Sheet write, status updates — a real test produced a correctly-recorded `failed` status (expected, given the known block — this confirms the plumbing, not a new bug).
+- ✅ Fixed: guest info wasn't being captured (booking record was created before the billing form was filled in, so guest was always empty). Now captured at charge time regardless of outcome.
+- ❌ Still blocked: `/pts/v2/payments` still returns `DAGGREJECTED`. No change — still awaiting NIMB.
+
 ### Module 3 — Unified Checkout (`methods/embedded/unified-checkout.js`)
-**Status: ⚪ Not started.** Stub only, returns 501. Not prioritized while Pay by Link is the working path — revisit only if embedded (non-redirect) checkout becomes a priority later.
+**Status: 🟡 Session creation works; wallet path investigated and shelved.**
+- ✅ Confirmed working: `/uc/v1/sessions` (not `/up/v1/sessions` — that 404s), full valid capture context JWT returned.
+- ❌ Google Pay: enabled in Business Center, but confirmed via decoded JWT (`allowedPaymentTypes`) that it's still not actually active even after 30+ minutes. Root cause: Google Pay needs a **separate Google Pay Business Console merchant registration** with Google directly — the Business Center toggle alone isn't sufficient. This is a real, separate project with its own timeline — correctly shelved, not pursued further for now.
+- Plain card charges via Unified Checkout would hit the same `/pts/v2/payments` block as Microform (architecturally confirmed via CyberSource's own product taxonomy — both are front-end tokenization layers feeding the same backend call) — not worth testing further until that's resolved.
 
 ## 5. Webhook setup — remaining steps
 
@@ -79,7 +90,21 @@ This is the main open technical task right now.
 4. Set `CYBS_WEBHOOK_SECRET` as a Worker secret once you have that key.
 5. Run one real (or minimal) Pay by Link payment, then check: did `/api/webhook/cybersource` get hit? What did the payload actually look like? Update `handleWebhookEvent` in `paylink.js` if the field names differ from the current guess (`purchaseInformation.purchaseNumber`, `status`).
 
-## 6. External dependencies / waiting on
+## 6. New finding — Payer Authentication (3D Secure) as the likely real root cause
+
+CyberSource support's response to the DAGGREJECTED case revealed the actual decline reason includes `CARD_CATEGORY_ECI_REFUSED`. Comparing this against a real successful Pay by Link transaction (which used `commerceIndicator: "5"`, i.e. fully 3DS-authenticated) versus our direct Microform/Unified Checkout calls (`commerceIndicator: "internet"`, no authentication at all) strongly suggests **the acquirer requires 3D Secure authentication**, which our direct REST integration has never performed.
+
+**Confirmed via Postman:** `POST /risk/v1/authentication-setups` succeeds on this account (real Cardinal Commerce `accessToken`/`deviceDataCollectionUrl`/`referenceId` returned). This means Payer Authentication is entitled and buildable — a real path to unblocking Microform/Unified Checkout **without waiting on NIMB further**.
+
+**Remaining steps to build (in order, each needs browser-based testing, not just Postman):**
+1. Device data collection — post the `accessToken` to `deviceDataCollectionUrl` via a hidden iframe/form, wait for completion.
+2. `POST /risk/v1/authentications` — enrollment check using the `referenceId`; returns either a frictionless pass or a step-up challenge.
+3. If step-up: render the challenge iframe, handle the OTP, then `POST /risk/v1/authentication-results` to validate.
+4. Include the resulting `cavv`/`eci`/`xid` in the final `/pts/v2/payments` call.
+
+This is a real, multi-step build — not a quick patch. Next concrete step: test `/risk/v1/authentications` in Postman with the `referenceId` just obtained, to see what happens without full device-data-collection first (informative either way).
+
+## 7. External dependencies / waiting on
 
 | Item | Sent to | Status |
 |---|---|---|
@@ -89,7 +114,7 @@ This is the main open technical task right now.
 | Confirmed settlement currency | Not yet formally asked | Ask alongside the above |
 | Minimum transaction amount policy | Not yet formally asked | Low priority — not blocking |
 
-## 7. Immediate next steps (in order)
+## 8. Immediate next steps (in order)
 
 1. Deploy the Worker (`wrangler deploy`).
 2. Create the webhook subscription (§5) — verify via Postman first.

@@ -9,6 +9,7 @@
 import { priceCart, computeDepositOptions } from "../../catalog.js";
 import { cybersourceRequest } from "../../cybersource.js";
 import { createBooking, updateBookingStatus } from "../../bookings.js";
+import { setupAuthentication, checkEnrollment as checkPayerEnrollment } from "./payer-auth.js";
 
 const SUPPORTED_CURRENCIES = ["USD"]; // update only after NIMB confirms others
 
@@ -21,9 +22,13 @@ export async function createSession(request, env) {
 
   await createBooking(env, { bookingId, items, total, amountDue: amount, guest });
 
-  const origin = env.CHECKOUT_ORIGIN || new URL(request.url).origin;
+  const reqUrl = new URL(request.url);
+  const targetOrigins = [env.CHECKOUT_ORIGIN || reqUrl.origin];
+  if (reqUrl.hostname === "localhost" && !targetOrigins.includes(reqUrl.origin)) {
+    targetOrigins.push(reqUrl.origin);
+  }
   const capture = await cybersourceRequest(env, "POST", "/microform/v2/sessions", {
-    targetOrigins: [origin],
+    targetOrigins,
     clientVersion: "v2",
     allowedCardNetworks: ["VISA", "MASTERCARD"],
     allowedPaymentTypes: ["CARD"],
@@ -76,6 +81,18 @@ export async function charge(request, env) {
     return json({ error: "Charge failed", detail: result.data }, 402);
   }
   return json({ status: "paid", cybsResponse: result.data });
+}
+
+export async function authSetup(request, env) {
+  const body = await request.json();
+  const res = await setupAuthentication(env, body);
+  return json(res);
+}
+
+export async function checkEnrollment(request, env) {
+  const body = await request.json();
+  const res = await checkPayerEnrollment(env, body);
+  return json(res);
 }
 
 export function renderCheckoutPage(url) {
