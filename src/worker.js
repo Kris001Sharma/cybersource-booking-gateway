@@ -207,8 +207,15 @@ function renderDdcTestPage(url) {
   <script>
     document.getElementById('ddc-form').submit();
     window.addEventListener('message', function(event) {
-      document.getElementById('status').textContent = 'Received postMessage — check console for detail';
-      console.log('DDC postMessage received:', event.origin, event.data);
+      if (event.origin !== 'https://centinelapi.cardinalcommerce.com') return;
+      let data = event.data;
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (e) {}
+      }
+      if (data && data.MessageType === 'profile.completed') {
+        document.getElementById('status').textContent = 'Received Cardinal profile.completed — check console for detail';
+        console.log('DDC postMessage received:', event.origin, data);
+      }
     }, false);
     setTimeout(() => {
       if (document.getElementById('status').textContent === 'Submitting...') {
@@ -412,20 +419,32 @@ function renderPhase1TestPage(url) {
         await new Promise((resolve) => {
           let resolved = false;
           function onMsg(ev) {
-            log('Received DDC postMessage: ' + JSON.stringify(ev.data));
-            window.removeEventListener('message', onMsg);
-            if (!resolved) { resolved = true; resolve(); }
+            if (ev.origin !== 'https://centinelapi.cardinalcommerce.com') {
+              console.log('[Phase1-Test] Ignored postMessage from non-Cardinal origin:', ev.origin, ev.data);
+              return;
+            }
+            let data = ev.data;
+            if (typeof data === 'string') {
+              try { data = JSON.parse(data); } catch (e) {}
+            }
+            console.log('[Phase1-Test] Origin-matched postMessage from Cardinal received:', ev.origin, data);
+            if (data && data.MessageType === 'profile.completed') {
+              console.log('[Phase1-Test] Confirmed origin-matched message with MessageType: "profile.completed"');
+              log('DDC SUCCESS: Origin https://centinelapi.cardinalcommerce.com verified, MessageType="profile.completed"');
+              window.removeEventListener('message', onMsg);
+              if (!resolved) { resolved = true; resolve(); }
+            }
           }
           window.addEventListener('message', onMsg);
           ddcForm.submit();
           setTimeout(() => {
             if (!resolved) {
-              log('DDC wait window finished (6s fallback). Proceeding...');
+              log('DDC timeout reached (10s) without profile.completed from Cardinal. Proceeding with caution...');
               window.removeEventListener('message', onMsg);
               resolved = true;
               resolve();
             }
-          }, 6000);
+          }, 10000);
         });
 
         // 4. Call Enrollment Check
