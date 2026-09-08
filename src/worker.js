@@ -8,7 +8,7 @@ import * as paylink from "./methods/hosted/paylink.js";
 // Which module a plain /checkout?items=... link uses when no method is
 // specified. Change this one line to switch the site-wide default without
 // touching any button links on the actual website.
-const DEFAULT_METHOD = "paylink";
+const DEFAULT_METHOD = "microform";
 
 export default {
   async fetch(request, env, ctx) {
@@ -19,22 +19,22 @@ export default {
     if (p === "/api/quote") return handleQuote(url);
 
     // ---- Method-specific routes ----
+    if (p === "/checkout/microform") return microform.renderCheckoutPage(url);
     if (p === "/api/microform/session" && request.method === "POST") return microform.createSession(request, env);
     if (p === "/api/microform/charge" && request.method === "POST") return microform.charge(request, env);
-    if (p === "/checkout/microform") return microform.renderCheckoutPage(url);
 
     if (p === "/api/paylink/create" && request.method === "POST") return paylink.createLink(request, env, ctx);
     if (p === "/checkout/paylink") return paylink.renderCheckoutPage(url);
 
-    if (p === "/checkout/unified") return unifiedCheckout.renderCheckoutPage();
+    if (p === "/checkout/unified") return unifiedCheckout.renderCheckoutPage(url);
     if (p === "/api/unified/session" && request.method === "POST") return unifiedCheckout.createSession(request, env);
-    if (p.startsWith("/api/unified/")) return unifiedCheckout.notImplemented();
+    if (p === "/api/unified/charge" && request.method === "POST") return unifiedCheckout.charge(request, env);
 
     // ---- Generic entry point: /checkout?items=...&method=paylink|microform|unified ----
     if (p === "/checkout") {
       const method = url.searchParams.get("method") || DEFAULT_METHOD;
       if (method === "microform") return microform.renderCheckoutPage(url);
-      if (method === "unified") return unifiedCheckout.renderCheckoutPage();
+      if (method === "unified") return unifiedCheckout.renderCheckoutPage(url);
       return paylink.renderCheckoutPage(url);
     }
 

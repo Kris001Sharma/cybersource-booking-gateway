@@ -14,8 +14,8 @@ export async function createBooking(env, { bookingId, items, total, amountDue, g
   });
 }
 
-export async function updateBookingStatus(env, { bookingId, status }) {
-  return postToSheet(env, { action: "update_booking_status", bookingId, status });
+export async function updateBookingStatus(env, { bookingId, status, guest }) {
+  return postToSheet(env, { action: "update_booking_status", bookingId, status, guest });
 }
 
 async function postToSheet(env, body) {

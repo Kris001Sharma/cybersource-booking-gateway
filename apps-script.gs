@@ -29,6 +29,7 @@ function doPost(e) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][0] === body.bookingId) {
         sheet.getRange(i + 1, 6).setValue(body.status); // column 6 = status
+        if (body.guest) sheet.getRange(i + 1, 5).setValue(JSON.stringify(body.guest)); // column 5 = guest
         break;
       }
     }
@@ -52,4 +53,3 @@ function respond(obj) {
     ContentService.MimeType.JSON
   );
 }
- 

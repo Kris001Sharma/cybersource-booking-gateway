@@ -66,7 +66,11 @@ export async function charge(request, env) {
   const result = await cybersourceRequest(env, "POST", "/pts/v2/payments", paymentPayload);
   const authorized = result.ok && result.data.status === "AUTHORIZED";
 
-  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed" });
+  // billTo is the first point guest info is actually available in this
+  // flow (collected at charge time, not session time) — capture it
+  // regardless of outcome, since it's just contact info, not tied to
+  // whether the charge succeeded.
+  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", guest: billTo });
 
   if (!authorized) {
     return json({ error: "Charge failed", detail: result.data }, 402);
