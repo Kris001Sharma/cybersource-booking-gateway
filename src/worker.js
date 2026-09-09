@@ -22,6 +22,7 @@ export default {
     if (p === "/debug/phase1-test") return renderPhase1TestPage(url);
     if (p === "/debug/ddc-test") return renderDdcTestPage(url);
     if (p === "/debug/stepup-test") return renderStepUpTestPage(url);
+    if (p === "/api/microform/stepup-callback") return microform.stepUpCallback(request);
     if (p === "/api/microform/validate-auth" && request.method === "POST") return validateAuth(request, env);
     if (p === "/api/microform/auth-setup" && request.method === "POST") return microform.authSetup(request, env);
     if (p === "/api/microform/check-enrollment" && request.method === "POST") return microform.checkEnrollment(request, env);
@@ -172,8 +173,16 @@ function renderStepUpTestPage(url) {
   <script>
     document.getElementById('step-up-form').submit();
     window.addEventListener('message', function(event) {
-      document.getElementById('status').textContent = 'Challenge completed — check console, then call /api/microform/validate-auth';
-      console.log('Step-up postMessage received:', event.origin, event.data);
+      let data = event.data;
+      if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (e) {}
+      }
+      if (data && data.type === 'stepup-complete') {
+        document.getElementById('status').textContent = 'Challenge completed! TransactionId: ' + (data.transactionId || '') + ' — call /api/microform/validate-auth';
+        console.log('Step-up postMessage received (stepup-complete):', data);
+      } else {
+        console.log('Step-up other postMessage received:', event.origin, event.data);
+      }
     }, false);
   </script>
 </body></html>`;
@@ -261,7 +270,7 @@ function renderPhase1TestPage(url) {
     <input id="bill-country" value="NP" placeholder="Country code (e.g. NP, US)">
   </div>
   <div class="row">
-    <input id="amount" value="1.00" placeholder="Amount">
+    <input id="amount" value="0.01" placeholder="Amount">
     <select id="currency">
       <option value="USD" selected>USD</option>
       <option value="NPR">NPR</option>
@@ -319,6 +328,10 @@ function renderPhase1TestPage(url) {
       div.textContent = msg;
       logEl.appendChild(div);
     }
+
+    document.getElementById('currency').addEventListener('change', function() {
+      document.getElementById('amount').value = this.value === 'NPR' ? '1' : '0.01';
+    });
 
     function loadMicroformScript(src, integrity) {
       return new Promise((resolve, reject) => {
@@ -474,10 +487,115 @@ function renderPhase1TestPage(url) {
           const stepUpForm = document.getElementById('phase1-stepup-form');
           stepUpForm.action = cai.stepUpUrl;
           document.getElementById('phase1-stepup-jwt').value = cai.accessToken || cai.token;
-          stepUpForm.submit();
-          log('Step-up form submitted. Issuing bank OTP screen loading in iframe. Real OTP will arrive on phone.');
+
+          log('Awaiting step-up completion callback (type: "stepup-complete")...');
+          const stepUpData = await new Promise((resolve) => {
+            function onStepUpMsg(ev) {
+              let data = ev.data;
+              if (typeof data === 'string') {
+                try { data = JSON.parse(data); } catch (e) {}
+              }
+              if (data && data.type === 'stepup-complete') {
+                console.log('[Phase1-Test] Step-up completion message received:', data);
+                log('Step-up COMPLETED! Received TransactionId: ' + (data.transactionId || 'none'));
+                window.removeEventListener('message', onStepUpMsg);
+                resolve(data);
+              }
+            }
+            window.addEventListener('message', onStepUpMsg);
+            stepUpForm.submit();
+            log('Step-up form submitted. Issuing bank OTP screen loading in iframe. Enter OTP on screen.');
+          });
+
+          // Phase 4 validate call using the returned transactionId
+          const authTxId = stepUpData.transactionId || cai.authenticationTransactionId || cai.referenceId;
+          log('5. Calling POST /api/microform/validate-auth with authenticationTransactionId: ' + authTxId);
+          const valResp = await fetch('/api/microform/validate-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ authenticationTransactionId: authTxId })
+          }).then(r => r.json());
+
+          outEl.textContent = JSON.stringify(valResp, null, 2);
+          log('Validation Result Status: ' + (valResp.status || valResp.consumerAuthenticationInformation?.status));
+          const vcai = valResp.consumerAuthenticationInformation || {};
+          log('cavv: ' + (vcai.cavv || 'none') + ', eci: ' + (vcai.eciRawType || vcai.eci || 'none') + ', xid: ' + (vcai.xid || 'none'));
+
+          // Phase 5: Charge with 3DS authentication data (proof-of-hypothesis step)
+          // IMPORTANT: processingInformation.capture MUST stay false — no settlement.
+          // commerceIndicator is set in shared-charge.js based on auth outcome ("5" when auth present).
+          const authFields = valResp.consumerAuthenticationInformation ? {
+            cavv: vcai.cavv,
+            eciRawType: vcai.eciRawType,
+            eci: vcai.eci,
+            xid: vcai.xid,
+            directoryServerTransactionId: vcai.directoryServerTransactionId || vcai.authenticationTransactionId,
+            authenticationTransactionId: authTxId,
+          } : null;
+
+          log('6. Calling POST /api/microform/charge with 3DS auth fields (capture: false)...');
+          const chargePayload = {
+            bookingId: sessionData ? sessionData.bookingId : '',
+            transientToken: token,
+            amount: amount,
+            currency: currency,
+            billTo: billTo,
+          };
+          if (authFields && authFields.cavv) {
+            chargePayload.consumerAuthenticationInformation = authFields;
+          }
+          const chargeResp = await fetch('/api/microform/charge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chargePayload)
+          }).then(r => r.json());
+
+          log('Charge Response: ' + JSON.stringify(chargeResp, null, 2));
+          log('Charge status: ' + (chargeResp.status || chargeResp.error ? 'FAILED/' + (chargeResp.error || chargeResp.detail || 'unknown') : 'PAID'));
+          outEl.textContent = JSON.stringify({
+            validationResult: valResp,
+            chargeResult: chargeResp
+          }, null, 2);
         } else if (cai.challengeRequired === 'N') {
           log('Frictionless pass! No OTP challenge required.');
+          // For frictionless path, still run validate + charge
+          const authTxIdFrictionless = cai.authenticationTransactionId || cai.referenceId;
+          log('5. Calling POST /api/microform/validate-auth (frictionless) with authenticationTransactionId: ' + authTxIdFrictionless);
+          const valRespFrictionless = await fetch('/api/microform/validate-auth', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ authenticationTransactionId: authTxIdFrictionless })
+          }).then(r => r.json());
+          outEl.textContent = JSON.stringify(valRespFrictionless, null, 2);
+          const vcaiFrictionless = valRespFrictionless.consumerAuthenticationInformation || {};
+          log('Frictionless validation cavv: ' + (vcaiFrictionless.cavv || 'none') + ', eci: ' + (vcaiFrictionless.eciRawType || vcaiFrictionless.eci || 'none'));
+          const authFieldsFrictionless = valRespFrictionless.consumerAuthenticationInformation ? {
+            cavv: vcaiFrictionless.cavv,
+            eciRawType: vcaiFrictionless.eciRawType,
+            eci: vcaiFrictionless.eci,
+            xid: vcaiFrictionless.xid,
+            directoryServerTransactionId: vcaiFrictionless.directoryServerTransactionId || vcaiFrictionless.authenticationTransactionId,
+            authenticationTransactionId: authTxIdFrictionless,
+          } : null;
+          log('6. Calling POST /api/microform/charge (frictionless, capture: false)...');
+          const chargePayloadFrictionless = {
+            bookingId: sessionData ? sessionData.bookingId : '',
+            transientToken: token,
+            amount: amount,
+            currency: currency,
+            billTo: billTo,
+          };
+          if (authFieldsFrictionless && authFieldsFrictionless.cavv) {
+            chargePayloadFrictionless.consumerAuthenticationInformation = authFieldsFrictionless;
+          }
+          const chargeRespFrictionless = await fetch('/api/microform/charge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chargePayloadFrictionless)
+          }).then(r => r.json());
+          log('Frictionless Charge Response: ' + JSON.stringify(chargeRespFrictionless, null, 2));
+          outEl.textContent = JSON.stringify({
+            validationResult: valRespFrictionless,
+            chargeResult: chargeRespFrictionless
+          }, null, 2);
         } else {
           log('Enrollment response evaluated. Review raw JSON output in section 4.');
         }

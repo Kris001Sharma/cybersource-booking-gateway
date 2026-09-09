@@ -32,7 +32,24 @@ export async function setupAuthentication(env, { transientToken }) {
  * Calls POST /risk/v1/authentications with the token, referenceId, full billTo, and amount/currency.
  * Returns the full response.
  */
-export async function checkEnrollment(env, { transientToken, referenceId, amount, currency = "USD", billTo }) {
+/**
+ * Step 5 of Payer Authentication: Validate Authentication Result
+ * Calls POST /risk/v1/authentication-results with the authenticationTransactionId.
+ * Returns the full response (includes cavv, eciRawType/eci, xid, directoryServerTransactionId, etc.).
+ */
+export async function validateAuthentication(env, { authenticationTransactionId }) {
+  const payload = {
+    clientReferenceInformation: { code: crypto.randomUUID() },
+    consumerAuthenticationInformation: {
+      authenticationTransactionId,
+    },
+  };
+
+  const result = await cybersourceRequest(env, "POST", "/risk/v1/authentication-results", payload);
+  return result.data;
+}
+
+export async function checkEnrollment(env, { transientToken, referenceId, amount, currency = "USD", billTo, returnUrl }) {
   const payload = {
     clientReferenceInformation: {
       code: crypto.randomUUID(),
@@ -49,6 +66,7 @@ export async function checkEnrollment(env, { transientToken, referenceId, amount
     },
     consumerAuthenticationInformation: {
       referenceId,
+      returnUrl: returnUrl || `${env.CHECKOUT_ORIGIN}/api/microform/stepup-callback`,
     },
   };
 

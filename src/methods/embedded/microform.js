@@ -11,7 +11,7 @@ import { cybersourceRequest } from "../../cybersource.js";
 import { createBooking, updateBookingStatus } from "../../bookings.js";
 import { setupAuthentication, checkEnrollment as checkPayerEnrollment } from "./payer-auth.js";
 
-const SUPPORTED_CURRENCIES = ["USD"]; // update only after NIMB confirms others
+const SUPPORTED_CURRENCIES = ["USD", "NPR"];
 
 export async function createSession(request, env) {
   const { skus, payAmount, guest } = await request.json();
@@ -46,7 +46,7 @@ export async function createSession(request, env) {
 }
 
 export async function charge(request, env) {
-  const { bookingId, transientToken, amount, currency = "USD", billTo } = await request.json();
+  const { bookingId, transientToken, amount, currency = "USD", billTo, consumerAuthenticationInformation } = await request.json();
 
   if (!SUPPORTED_CURRENCIES.includes(currency)) {
     return json({ error: "Unsupported currency", detail: currency }, 400);
@@ -58,15 +58,25 @@ export async function charge(request, env) {
     return json({ error: "Missing billing fields", detail: missing }, 400);
   }
 
+  // When 3DS authentication data is present, set commerceIndicator to "vbv"
+  // (not the raw ECI value) for VBV-authenticated transactions.
+  const commerceIndicator = consumerAuthenticationInformation ? "vbv" : "internet";
+
   const paymentPayload = {
     clientReferenceInformation: { code: bookingId },
-    processingInformation: { commerceIndicator: "internet", capture: false },
+    processingInformation: { commerceIndicator, capture: false },
     tokenInformation: { transientTokenJwt: transientToken },
     orderInformation: {
       amountDetails: { totalAmount: Number(amount).toFixed(2), currency },
       billTo,
     },
   };
+
+  // IMPORTANT: Confirm exact field names against the real
+  // /risk/v1/authentication-results response before relying on this.
+  if (consumerAuthenticationInformation) {
+    paymentPayload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  }
 
   const result = await cybersourceRequest(env, "POST", "/pts/v2/payments", paymentPayload);
   const authorized = result.ok && result.data.status === "AUTHORIZED";
@@ -93,6 +103,36 @@ export async function checkEnrollment(request, env) {
   const body = await request.json();
   const res = await checkPayerEnrollment(env, body);
   return json(res);
+}
+
+export async function stepUpCallback(request) {
+  let transactionId = "";
+  try {
+    if (request.method === "POST") {
+      try {
+        const formData = await request.formData();
+        transactionId = formData.get("TransactionId") || formData.get("transactionId") || formData.get("MD") || "";
+      } catch (err) {
+        console.error("[stepup-callback] Failed to parse form data:", err);
+      }
+    } else {
+      const url = new URL(request.url);
+      transactionId = url.searchParams.get("TransactionId") || url.searchParams.get("transactionId") || "";
+    }
+  } catch (unexpectedErr) {
+    console.error("[stepup-callback] Unexpected error during parsing:", unexpectedErr);
+  }
+
+  const html = `<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Step-Up Callback</title></head>
+<body>
+<script>
+  window.parent.postMessage({ type: "stepup-complete", transactionId: ${JSON.stringify(transactionId)} }, "*");
+</script>
+</body>
+</html>`;
+  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 export function renderCheckoutPage(url) {

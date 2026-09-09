@@ -9,7 +9,7 @@ import { updateBookingStatus } from "../../bookings.js";
 
 const SUPPORTED_CURRENCIES = ["USD", "NPR"]; // update only after NIMB confirms others
 
-export async function chargeCard(env, { bookingId, transientToken, amount, currency = "NPR", billTo }) {
+export async function chargeCard(env, { bookingId, transientToken, amount, currency = "NPR", billTo, consumerAuthenticationInformation }) {
   if (!SUPPORTED_CURRENCIES.includes(currency)) {
     return { ok: false, status: 400, body: { error: "Unsupported currency", detail: currency } };
   }
@@ -20,15 +20,29 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
     return { ok: false, status: 400, body: { error: "Missing billing fields", detail: missing } };
   }
 
+  // When 3DS authentication data is present, commerceIndicator must reflect
+  // the actual authentication outcome — NOT remain "internet". The real
+  // successful Pay by Link transaction used "5" (label "vbv") for VBV-authenticated.
+  const commerceIndicator = consumerAuthenticationInformation ? "vbv" : "internet";
+
   const paymentPayload = {
     clientReferenceInformation: { code: bookingId },
-    processingInformation: { commerceIndicator: "internet", capture: false },
+    processingInformation: { commerceIndicator, capture: false },
     tokenInformation: { transientTokenJwt: transientToken },
     orderInformation: {
       amountDetails: { totalAmount: Number(amount).toFixed(2), currency },
       billTo,
     },
   };
+
+  if (consumerAuthenticationInformation) {
+    // IMPORTANT: Confirm exact field names (`cavv`, `eciRawType` vs `eci`,
+    // `xid` / `directoryServerTransactionId`, `paSpecificationVersion`)
+    // against the real /risk/v1/authentication-results response before
+    // relying on this attachment. Attach generically for now; verify
+    // against confirmed fields during Phase A test.
+    paymentPayload.consumerAuthenticationInformation = consumerAuthenticationInformation;
+  }
 
   // TEMPORARY — for capturing evidence for the CyberSource support case.
   // Safe to log: no raw card number/CVV ever reaches this code, only the
