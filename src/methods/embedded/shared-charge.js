@@ -5,11 +5,37 @@
 // to both methods automatically instead of needing to be mirrored by hand.
 
 import { cybersourceRequest } from "../../cybersource.js";
-import { updateBookingStatus } from "../../bookings.js";
+import { updateBookingStatus, getBooking } from "../../bookings.js";
+import { priceCart, computeDepositOptions } from "../../catalog.js";
 
-const SUPPORTED_CURRENCIES = ["USD", "NPR"]; // update only after NIMB confirms others
+const SUPPORTED_CURRENCIES = ["USD", "NPR"];
 
-export async function chargeCard(env, { bookingId, transientToken, amount, currency = "NPR", billTo, consumerAuthenticationInformation }) {
+// Confirmed network codes from CyberSource: 001=Visa, 002=Mastercard
+// Only these have verified commerceIndicator mappings.
+// For other networks with 3DS, we default to "internet" with a warning.
+const CONFIRMED_NETWORK_MAP = { 
+  "001": "vbv",  // Visa
+  "002": "vbv"   // Mastercard
+};
+
+export function getCommerceIndicator(cardNetworkCode, has3ds) {
+  if (!has3ds) return "internet";
+  if (CONFIRMED_NETWORK_MAP[cardNetworkCode]) return CONFIRMED_NETWORK_MAP[cardNetworkCode];
+  // Unknown network with 3DS: default to "internet" but log warning
+  console.warn(`[chargeCard] Unknown card network "${cardNetworkCode}" with 3DS auth - defaulting commerceIndicator to "internet"`);
+  return "internet";
+}
+
+function decodeTokenPayload(token) {
+  try {
+    const payload = token.split('.')[1];
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function chargeCard(env, { bookingId, transientToken, amount, currency = "NPR", billTo, consumerAuthenticationInformation, paymentMethod }) {
   if (!SUPPORTED_CURRENCIES.includes(currency)) {
     return { ok: false, status: 400, body: { error: "Unsupported currency", detail: currency } };
   }
@@ -20,44 +46,71 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
     return { ok: false, status: 400, body: { error: "Missing billing fields", detail: missing } };
   }
 
-  // When 3DS authentication data is present, commerceIndicator must reflect
-  // the actual authentication outcome — NOT remain "internet". The real
-  // successful Pay by Link transaction used "5" (label "vbv") for VBV-authenticated.
-  const commerceIndicator = consumerAuthenticationInformation ? "vbv" : "internet";
+  // Debug: log billTo for guest capture verification
+  console.log(`[chargeCard] billTo received:`, JSON.stringify(billTo, null, 2));
+
+  // Fetch booking to verify/recompute amount server-side
+  const booking = await getBooking(env, bookingId);
+  let serverAmount = amount;
+  if (booking) {
+    const skus = booking.items?.map(i => i.sku) || [];
+    const { items, total } = priceCart(skus);
+    const { deposit, full } = computeDepositOptions(total);
+    console.log(`[chargeCard] Booking ${bookingId}: items=${JSON.stringify(items)}, total=${total}, deposit=${deposit}, full=${full}, clientAmount=${amount}`);
+    const isValidAmount = Math.abs(amount - deposit) < 0.01 || Math.abs(amount - full) < 0.01;
+    if (!isValidAmount) {
+      return { ok: false, status: 400, body: { error: "Amount mismatch", detail: { clientAmount: amount, serverDeposit: deposit, serverFull: full } } };
+    }
+    serverAmount = amount;
+  } else {
+    console.warn(`[chargeCard] Booking ${bookingId} not found, using client amount ${amount}`);
+  }
+
+  const has3ds = !!consumerAuthenticationInformation;
+  
+  // Debug: log full consumerAuthenticationInformation for network detection debugging
+  if (has3ds) {
+    console.log(`[chargeCard] consumerAuthenticationInformation keys:`, Object.keys(consumerAuthenticationInformation));
+    console.log(`[chargeCard] consumerAuthenticationInformation:`, JSON.stringify(consumerAuthenticationInformation, null, 2));
+  }
+  
+  // Get card network: prefer from auth response, fall back to token's detectedCardTypes
+  let networkFromAuth = consumerAuthenticationInformation ? (consumerAuthenticationInformation.cardNetwork || consumerAuthenticationInformation.networkCode || null) : null;
+  if (!networkFromAuth && transientToken) {
+    const tokenPayload = decodeTokenPayload(transientToken);
+    const detected = tokenPayload?.ctx?.[0]?.data?.detectedCardTypes;
+    if (detected && detected.length > 0) {
+      networkFromAuth = detected[0];
+      console.log(`[chargeCard] Card network from token detectedCardTypes: ${networkFromAuth}`);
+    }
+  }
+  console.log(`[chargeCard] networkFromAuth: ${networkFromAuth}, has3ds: ${has3ds}`);
+  
+  const commerceIndicator = getCommerceIndicator(networkFromAuth || "", has3ds);
+
+  const capture = env?.CYBS_CAPTURE_MODE === "true" ? true : false;
 
   const paymentPayload = {
     clientReferenceInformation: { code: bookingId },
-    processingInformation: { commerceIndicator, capture: false },
+    processingInformation: { commerceIndicator, capture },
     tokenInformation: { transientTokenJwt: transientToken },
     orderInformation: {
-      amountDetails: { totalAmount: Number(amount).toFixed(2), currency },
+      amountDetails: { totalAmount: Number(serverAmount).toFixed(2), currency },
       billTo,
     },
   };
 
   if (consumerAuthenticationInformation) {
-    // IMPORTANT: Confirm exact field names (`cavv`, `eciRawType` vs `eci`,
-    // `xid` / `directoryServerTransactionId`, `paSpecificationVersion`)
-    // against the real /risk/v1/authentication-results response before
-    // relying on this attachment. Attach generically for now; verify
-    // against confirmed fields during Phase A test.
     paymentPayload.consumerAuthenticationInformation = consumerAuthenticationInformation;
   }
 
-  // TEMPORARY — for capturing evidence for the CyberSource support case.
-  // Safe to log: no raw card number/CVV ever reaches this code, only the
-  // already-tokenized transientTokenJwt and non-sensitive billing fields.
-  // Remove once the support case is resolved.
-  console.log("[support-evidence] REQUEST:", JSON.stringify(paymentPayload));
-
   const result = await cybersourceRequest(env, "POST", "/pts/v2/payments", paymentPayload);
-
-  console.log("[support-evidence] RESPONSE:", JSON.stringify(result.data));
-  console.log("[support-evidence] Request ID:", result.data?.id);
 
   const authorized = result.ok && result.data.status === "AUTHORIZED";
 
-  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", guest: billTo });
+  // Ensure guest/billTo is properly passed for Sheet update
+  console.log(`[chargeCard] Calling updateBookingStatus with guest:`, JSON.stringify(billTo, null, 2));
+  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", guest: billTo, paymentMethod });
 
   if (!authorized) {
     return { ok: false, status: 402, body: { error: "Charge failed", detail: result.data } };

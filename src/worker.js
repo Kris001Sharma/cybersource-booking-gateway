@@ -1,6 +1,5 @@
 import { priceCart, computeDepositOptions } from "./catalog.js";
 import { updateBookingStatus } from "./bookings.js";
-import { cybersourceRequest } from "./cybersource.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
 import * as paylink from "./methods/hosted/paylink.js";
@@ -8,7 +7,7 @@ import * as paylink from "./methods/hosted/paylink.js";
 // Which module a plain /checkout?items=... link uses when no method is
 // specified. Change this one line to switch the site-wide default without
 // touching any button links on the actual website.
-const DEFAULT_METHOD = "microform";
+const DEFAULT_METHOD = "paylink"; //"microform";
 
 export default {
   async fetch(request, env, ctx) {
@@ -19,11 +18,12 @@ export default {
     if (p === "/api/quote") return handleQuote(url);
 
     // ---- Method-specific routes ----
-    if (p === "/debug/phase1-test") return renderPhase1TestPage(url);
-    if (p === "/debug/ddc-test") return renderDdcTestPage(url);
-    if (p === "/debug/stepup-test") return renderStepUpTestPage(url);
+    if (p === "/debug/phase1-test") {
+      if (!env.DEBUG_ENABLED || env.DEBUG_ENABLED === "false") return new Response("Forbidden", { status: 403 });
+      return renderPhase1TestPage(url);
+    }
     if (p === "/api/microform/stepup-callback") return microform.stepUpCallback(request);
-    if (p === "/api/microform/validate-auth" && request.method === "POST") return validateAuth(request, env);
+    if (p === "/api/microform/validate-auth" && request.method === "POST") return microform.validateAuth(request, env);
     if (p === "/api/microform/auth-setup" && request.method === "POST") return microform.authSetup(request, env);
     if (p === "/api/microform/check-enrollment" && request.method === "POST") return microform.checkEnrollment(request, env);
     if (p === "/api/microform/session" && request.method === "POST") return microform.createSession(request, env);
@@ -151,86 +151,6 @@ function renderMinimalLanding() {
       if (!checked.length) { alert('Pick at least one item'); return; }
       location.href = '/checkout?items=' + checked.join(',');
     }
-  </script>
-</body></html>`;
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
-}
-
-// TEMPORARY debug route: the step-up challenge iframe — VISIBLE this time,
-// since this is where the real bank OTP UI renders. The JWT field here
-// uses the enrollment response's "token" field, not the setup accessToken.
-function renderStepUpTestPage(url) {
-  const stepUpUrl = url.searchParams.get("stepUpUrl") || "";
-  const jwt = url.searchParams.get("jwt") || "";
-  const html = `<!doctype html>
-<html><body>
-  <h3>Step-up challenge (complete the OTP below)</h3>
-  <iframe name="step-up-iframe" height="400" width="400"></iframe>
-  <form id="step-up-form" target="step-up-iframe" method="POST" action="${stepUpUrl}">
-    <input type="hidden" name="JWT" value="${jwt}">
-  </form>
-  <p id="status">Waiting for challenge completion...</p>
-  <script>
-    document.getElementById('step-up-form').submit();
-    window.addEventListener('message', function(event) {
-      let data = event.data;
-      if (typeof data === 'string') {
-        try { data = JSON.parse(data); } catch (e) {}
-      }
-      if (data && data.type === 'stepup-complete') {
-        document.getElementById('status').textContent = 'Challenge completed! TransactionId: ' + (data.transactionId || '') + ' — call /api/microform/validate-auth';
-        console.log('Step-up postMessage received (stepup-complete):', data);
-      } else {
-        console.log('Step-up other postMessage received:', event.origin, event.data);
-      }
-    }, false);
-  </script>
-</body></html>`;
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
-}
-
-// Step 5 of the flow: after the challenge completes, validate the result
-// and get the final cavv/eci/xid needed to actually charge the card.
-async function validateAuth(request, env) {
-  const { authenticationTransactionId } = await request.json();
-  const result = await cybersourceRequest(env, "POST", "/risk/v1/authentication-results", {
-    clientReferenceInformation: { code: "test-3ds-001" },
-    consumerAuthenticationInformation: { authenticationTransactionId },
-  });
-  return json(result.data, result.ok ? 200 : 502);
-}
-// (file:// caused anomalous behavior — form-to-iframe posts are restricted
-// in that context). Pass accessToken and ddcUrl as query params so this
-// can be retested without redeploying each time. Remove once 3DS is done.
-function renderDdcTestPage(url) {
-  const accessToken = url.searchParams.get("accessToken") || "";
-  const ddcUrl = url.searchParams.get("ddcUrl") || "";
-  const html = `<!doctype html>
-<html><body>
-  <h3>DDC test (served over HTTPS)</h3>
-  <p id="status">Submitting...</p>
-  <iframe name="ddc-iframe" height="10" width="10" style="display:none;"></iframe>
-  <form id="ddc-form" target="ddc-iframe" method="POST" action="${ddcUrl}">
-    <input type="hidden" name="JWT" value="${accessToken}">
-  </form>
-  <script>
-    document.getElementById('ddc-form').submit();
-    window.addEventListener('message', function(event) {
-      if (event.origin !== 'https://centinelapi.cardinalcommerce.com') return;
-      let data = event.data;
-      if (typeof data === 'string') {
-        try { data = JSON.parse(data); } catch (e) {}
-      }
-      if (data && data.MessageType === 'profile.completed') {
-        document.getElementById('status').textContent = 'Received Cardinal profile.completed — check console for detail';
-        console.log('DDC postMessage received:', event.origin, data);
-      }
-    }, false);
-    setTimeout(() => {
-      if (document.getElementById('status').textContent === 'Submitting...') {
-        document.getElementById('status').textContent = 'No postMessage received after 6s — collection window still likely complete, but no explicit confirmation from Cardinal (this is normal for this step). Re-run the enrollment check now.';
-      }
-    }, 6000);
   </script>
 </body></html>`;
   return new Response(html, { headers: { "Content-Type": "text/html" } });
@@ -513,7 +433,7 @@ function renderPhase1TestPage(url) {
           const valResp = await fetch('/api/microform/validate-auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authenticationTransactionId: authTxId })
+            body: JSON.stringify({ authenticationTransactionId: authTxId, bookingId: sessionData?.bookingId })
           }).then(r => r.json());
 
           outEl.textContent = JSON.stringify(valResp, null, 2);
@@ -563,7 +483,7 @@ function renderPhase1TestPage(url) {
           log('5. Calling POST /api/microform/validate-auth (frictionless) with authenticationTransactionId: ' + authTxIdFrictionless);
           const valRespFrictionless = await fetch('/api/microform/validate-auth', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authenticationTransactionId: authTxIdFrictionless })
+            body: JSON.stringify({ authenticationTransactionId: authTxIdFrictionless, bookingId: sessionData?.bookingId })
           }).then(r => r.json());
           outEl.textContent = JSON.stringify(valRespFrictionless, null, 2);
           const vcaiFrictionless = valRespFrictionless.consumerAuthenticationInformation || {};

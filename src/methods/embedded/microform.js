@@ -7,11 +7,10 @@
 // touching the other methods.
 
 import { priceCart, computeDepositOptions } from "../../catalog.js";
+import { createBooking } from "../../bookings.js";
 import { cybersourceRequest } from "../../cybersource.js";
-import { createBooking, updateBookingStatus } from "../../bookings.js";
-import { setupAuthentication, checkEnrollment as checkPayerEnrollment } from "./payer-auth.js";
-
-const SUPPORTED_CURRENCIES = ["USD", "NPR"];
+import { setupAuthentication, checkEnrollment as checkPayerEnrollment, validateAuthentication } from "./payer-auth.js";
+import { chargeCard } from "./shared-charge.js";
 
 export async function createSession(request, env) {
   const { skus, payAmount, guest } = await request.json();
@@ -20,7 +19,7 @@ export async function createSession(request, env) {
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  await createBooking(env, { bookingId, items, total, amountDue: amount, guest });
+  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "microform" });
 
   const reqUrl = new URL(request.url);
   const targetOrigins = [env.CHECKOUT_ORIGIN || reqUrl.origin];
@@ -47,50 +46,8 @@ export async function createSession(request, env) {
 
 export async function charge(request, env) {
   const { bookingId, transientToken, amount, currency = "USD", billTo, consumerAuthenticationInformation } = await request.json();
-
-  if (!SUPPORTED_CURRENCIES.includes(currency)) {
-    return json({ error: "Unsupported currency", detail: currency }, 400);
-  }
-
-  const required = ["firstName", "lastName", "email", "address1", "locality", "country"];
-  const missing = required.filter((f) => !billTo?.[f]);
-  if (missing.length) {
-    return json({ error: "Missing billing fields", detail: missing }, 400);
-  }
-
-  // When 3DS authentication data is present, set commerceIndicator to "vbv"
-  // (not the raw ECI value) for VBV-authenticated transactions.
-  const commerceIndicator = consumerAuthenticationInformation ? "vbv" : "internet";
-
-  const paymentPayload = {
-    clientReferenceInformation: { code: bookingId },
-    processingInformation: { commerceIndicator, capture: false },
-    tokenInformation: { transientTokenJwt: transientToken },
-    orderInformation: {
-      amountDetails: { totalAmount: Number(amount).toFixed(2), currency },
-      billTo,
-    },
-  };
-
-  // IMPORTANT: Confirm exact field names against the real
-  // /risk/v1/authentication-results response before relying on this.
-  if (consumerAuthenticationInformation) {
-    paymentPayload.consumerAuthenticationInformation = consumerAuthenticationInformation;
-  }
-
-  const result = await cybersourceRequest(env, "POST", "/pts/v2/payments", paymentPayload);
-  const authorized = result.ok && result.data.status === "AUTHORIZED";
-
-  // billTo is the first point guest info is actually available in this
-  // flow (collected at charge time, not session time) — capture it
-  // regardless of outcome, since it's just contact info, not tied to
-  // whether the charge succeeded.
-  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", guest: billTo });
-
-  if (!authorized) {
-    return json({ error: "Charge failed", detail: result.data }, 402);
-  }
-  return json({ status: "paid", cybsResponse: result.data });
+  const result = await chargeCard(env, { bookingId, transientToken, amount, currency, billTo, consumerAuthenticationInformation, paymentMethod: "microform" });
+  return new Response(JSON.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json" } });
 }
 
 export async function authSetup(request, env) {
@@ -103,6 +60,15 @@ export async function checkEnrollment(request, env) {
   const body = await request.json();
   const res = await checkPayerEnrollment(env, body);
   return json(res);
+}
+
+// Calls payer-auth.js:validateAuthentication() — the canonical implementation.
+// Replaces the inline stub that was previously in worker.js (which had a
+// hardcoded test-3ds-001 reference code — not production-correct).
+export async function validateAuth(request, env) {
+  const { authenticationTransactionId, bookingId } = await request.json();
+  const result = await validateAuthentication(env, { authenticationTransactionId, bookingId });
+  return json(result);
 }
 
 export async function stepUpCallback(request) {
@@ -138,6 +104,7 @@ export async function stepUpCallback(request) {
 export function renderCheckoutPage(url) {
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Checkout — Microform</title></head>
+<!-- payment-method: microform -->
 <body>
   <h2>Your booking (Microform)</h2>
   <div id="cart"></div>
@@ -155,6 +122,10 @@ export function renderCheckoutPage(url) {
   <input id="bill-state" placeholder="State/Province (e.g. CA)"><br>
   <input id="bill-zip" placeholder="Postal code"><br>
   <input id="bill-country" placeholder="Country code (e.g. US)" value="US"><br>
+  <select id="currency" style="margin-top:4px;width:100%;box-sizing:border-box;">
+    <option value="USD" selected>USD</option>
+    <option value="NPR">NPR</option>
+  </select>
 
   <h3>Card details</h3>
   <div id="card-number" style="height:40px;border:1px solid #ccc;margin:8px 0"></div>
@@ -173,6 +144,16 @@ export function renderCheckoutPage(url) {
   </div>
   <button id="pay-btn" disabled>Pay</button>
   <div id="msg"></div>
+
+  <!-- Step-Up Challenge container (visible when challenge required) -->
+  <div id="stepup-section" style="display:none;margin-top:20px;border-top:2px solid #ccc;padding-top:15px;">
+    <h3>Step-Up Challenge Frame (OTP)</h3>
+    <p>Issuing bank challenge prompt rendered below. Check your phone for the OTP!</p>
+    <iframe name="microform-stepup-iframe" width="420" height="420" style="border:1px solid #999;border-radius:4px;"></iframe>
+    <form id="microform-stepup-form" target="microform-stepup-iframe" method="POST" style="display:none;">
+      <input type="hidden" name="JWT" id="microform-stepup-jwt">
+    </form>
+  </div>
 
   <script>
     const params = new URLSearchParams(location.search);
@@ -206,7 +187,14 @@ export function renderCheckoutPage(url) {
         document.getElementById('deposit-options').style.display = 'block';
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ skus: items.split(','), payAmount: 'deposit' })
+          body: JSON.stringify({
+            skus: items.split(','), payAmount: 'deposit',
+            guest: {
+              firstName: document.getElementById('bill-first').value,
+              lastName: document.getElementById('bill-last').value,
+              email: document.getElementById('bill-email').value
+            }
+          })
         });
       })
       .then(r => r.json())
@@ -226,6 +214,7 @@ export function renderCheckoutPage(url) {
       .catch(e => { document.getElementById('msg').textContent = 'Setup error: ' + e.message; console.error(e); });
 
     document.getElementById('pay-btn').addEventListener('click', () => {
+      const currency = document.getElementById('currency') ? document.getElementById('currency').value : 'USD';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
       const amount = payAmount === 'full' ? quote.deposits.full : quote.deposits.deposit;
       const billTo = {
@@ -241,17 +230,131 @@ export function renderCheckoutPage(url) {
       microform.createToken({
         expirationMonth: document.getElementById('exp-month').value,
         expirationYear: document.getElementById('exp-year').value
-      }, (err, token) => {
+      }, async (err, token) => {
         if (err) { document.getElementById('msg').textContent = 'Card error: ' + err.message; return; }
-        fetch('/api/microform/charge', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bookingId: sessionInfo.bookingId, transientToken: token, amount, billTo })
-        })
-          .then(r => r.json())
-          .then(res => {
-            document.getElementById('msg').textContent =
-              res.error ? ('Payment failed: ' + JSON.stringify(res.detail)) : 'Payment confirmed — booking is paid.';
+
+        try {
+          // Step 1: Auth Setup
+          const setupResp = await fetch('/api/microform/auth-setup', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transientToken: token })
+          }).then(r => r.json());
+
+          if (!setupResp.referenceId || !setupResp.deviceDataCollectionUrl) {
+            document.getElementById('msg').textContent = 'Auth setup failed: missing referenceId or DDC URL';
+            return;
+          }
+
+          // Step 2: DDC (hidden iframe)
+          const ddcFrame = document.createElement('iframe');
+          ddcFrame.name = 'microform-ddc-iframe';
+          ddcFrame.style.display = 'none';
+          document.body.appendChild(ddcFrame);
+          const ddcForm = document.createElement('form');
+          ddcForm.method = 'POST'; ddcForm.action = setupResp.deviceDataCollectionUrl;
+          ddcForm.target = 'microform-ddc-iframe'; ddcForm.style.display = 'none';
+          const ddcJwt = document.createElement('input');
+          ddcJwt.type = 'hidden'; ddcJwt.name = 'JWT'; ddcJwt.value = setupResp.accessToken;
+          ddcForm.appendChild(ddcJwt);
+          document.body.appendChild(ddcForm);
+
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => { document.body.removeChild(ddcFrame); document.body.removeChild(ddcForm); resolve(); }, 10000);
+            const listener = (ev) => {
+              if (ev.origin !== 'https://centinelapi.cardinalcommerce.com') return;
+              let data = ev.data;
+              if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) {} }
+              if (data && data.MessageType === 'profile.completed') {
+                clearTimeout(timeout); window.removeEventListener('message', listener);
+                document.body.removeChild(ddcFrame); document.body.removeChild(ddcForm);
+                resolve();
+              }
+            };
+            window.addEventListener('message', listener);
+            ddcForm.submit();
           });
+
+          // Step 3: Enrollment Check
+          const enrollResp = await fetch('/api/microform/check-enrollment', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transientToken: token, referenceId: setupResp.referenceId,
+              amount: amount, currency: currency || 'USD', billTo: billTo,
+              returnUrl: (location.origin + '/api/microform/stepup-callback')
+            })
+          }).then(r => r.json());
+
+          const cai = enrollResp.consumerAuthenticationInformation || {};
+
+          // Step 4: Step-Up (if required)
+          let authTxId = '';
+          if (cai.stepUpUrl && (cai.accessToken || cai.token)) {
+            document.getElementById('stepup-section').style.display = 'block';
+            const stepUpFrame = document.createElement('iframe');
+            stepUpFrame.name = 'microform-stepup-iframe';
+            stepUpFrame.style.display = 'none';
+            document.body.appendChild(stepUpFrame);
+            const stepUpForm = document.createElement('form');
+            stepUpForm.method = 'POST'; stepUpForm.action = cai.stepUpUrl;
+            stepUpForm.target = 'microform-stepup-iframe'; stepUpForm.style.display = 'none';
+            const stepUpJwt = document.createElement('input');
+            stepUpJwt.type = 'hidden'; stepUpJwt.name = 'JWT'; stepUpJwt.value = cai.accessToken || cai.token;
+            stepUpForm.appendChild(stepUpJwt);
+            document.body.appendChild(stepUpForm);
+
+            const stepUpResult = await new Promise((resolve) => {
+              const listener = (ev) => {
+                let data = ev.data;
+                if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) {} }
+                if (data && data.type === 'stepup-complete') {
+                  window.removeEventListener('message', listener);
+                  document.body.removeChild(stepUpFrame); document.body.removeChild(stepUpForm);
+                  resolve(data);
+                }
+              };
+              window.addEventListener('message', listener);
+              stepUpForm.submit();
+            });
+            authTxId = stepUpResult.transactionId || cai.authenticationTransactionId || cai.referenceId;
+          } else {
+            authTxId = cai.authenticationTransactionId || cai.referenceId;
+          }
+
+          // Step 5: Validate Auth
+          const valResp = await fetch('/api/microform/validate-auth', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ authenticationTransactionId: authTxId, bookingId: sessionInfo.bookingId })
+          }).then(r => r.json());
+
+          const vcai = valResp.consumerAuthenticationInformation || {};
+
+          // Step 6: Charge with 3DS fields
+          const authFields = valResp.consumerAuthenticationInformation ? {
+            cavv: vcai.cavv, eciRawType: vcai.eciRawType, eci: vcai.eci,
+            xid: vcai.xid,
+            directoryServerTransactionId: vcai.directoryServerTransactionId || vcai.authenticationTransactionId,
+            authenticationTransactionId: authTxId
+          } : null;
+
+          const chargePayload = {
+            bookingId: sessionInfo.bookingId, transientToken: token, amount: amount,
+            currency: currency || 'USD', billTo: billTo
+          };
+          if (authFields && authFields.cavv) {
+            chargePayload.consumerAuthenticationInformation = authFields;
+          }
+          const chargeResp = await fetch('/api/microform/charge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chargePayload)
+          }).then(r => r.json());
+
+          document.getElementById('msg').textContent = chargeResp.error
+            ? ('Payment failed: ' + JSON.stringify(chargeResp.detail))
+            : 'Payment confirmed — booking is paid.';
+        } catch (e) {
+          document.getElementById('msg').textContent = 'Payment flow error: ' + e.message;
+          console.error('Checkout auth flow error:', e);
+        }
       });
     });
   </script>

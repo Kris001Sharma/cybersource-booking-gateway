@@ -36,10 +36,11 @@ export async function setupAuthentication(env, { transientToken }) {
  * Step 5 of Payer Authentication: Validate Authentication Result
  * Calls POST /risk/v1/authentication-results with the authenticationTransactionId.
  * Returns the full response (includes cavv, eciRawType/eci, xid, directoryServerTransactionId, etc.).
+ * Uses bookingId as clientReferenceInformation.code for end-to-end traceability in CyberSource logs.
  */
-export async function validateAuthentication(env, { authenticationTransactionId }) {
+export async function validateAuthentication(env, { authenticationTransactionId, bookingId }) {
   const payload = {
-    clientReferenceInformation: { code: crypto.randomUUID() },
+    clientReferenceInformation: { code: bookingId },
     consumerAuthenticationInformation: {
       authenticationTransactionId,
     },
