@@ -19,6 +19,10 @@ export const theme = {
   "radius-sm": "6px",
   "radius-md": "12px",
   "radius-lg": "20px",
+  "glass-white": "rgba(255,255,255,0.55)",
+  "glass-border": "rgba(255,255,255,0.25)",
+  "glass-blur": "blur(16px)",
+  "glass-shadow": "0 8px 32px rgba(44,36,31,0.08)",
   "shadow-card": "0 2px 12px rgba(44,36,31,0.06)",
   "shadow-elevated": "0 8px 30px rgba(44,36,31,0.10)",
 };

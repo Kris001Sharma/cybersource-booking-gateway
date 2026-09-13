@@ -762,7 +762,12 @@ function applyDesignTokens() {
       max-width: 1200px;
       margin: 0 auto;
       padding: 20px;
-      background: var(--warm-white);
+      background: var(--glass-white);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--glass-shadow);
       font-family: 'Inter', sans-serif;
     }
 
@@ -779,9 +784,9 @@ function applyDesignTokens() {
       background: var(--accent);
       color: white;
       border: none;
-      padding: 12px 24px;
+      padding: 10px 20px;
       border-radius: var(--radius-md);
-      font-size: 16px;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;

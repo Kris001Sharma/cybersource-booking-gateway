@@ -31,11 +31,12 @@ booking-poc/
   .workflows/            (empty — no saved workflows registered)
   apps-script.gs         (Google Apps Script — web app endpoint for Sheet read/write)
   audit-history.md       (post-implementation audit notes — kept as reference)
-  docs/                  (images/ empty — no diagram assets currently)
+  docs/                  (images/ — reference calendar (`reference calander1.jpg`) and landing screenshot (`Screenshot 2026-09-12 214831.png`) added 2026-09-13)
   payment-booking-subsystem-architecture.md
   PROJECT_STATUS.md      (this file)
   src/
-    catalog.js             (pricing/deposit math — off-limits, never edited in audit)
+    config.js              (embedded site config — replaces site-config.json; exports packages, rooms, activities, theme, siteInfo)
+    catalog.js             (pricing/deposit math — synchronized with config.js rooms/activities; off-limits)
     bookings.js            (Sheet read/write — off-limits)
     cybersource.js         (HTTP Signature auth — off-limits)
     worker.js              (router — verified: default method = "microform" at line 14; dispatch lines 35-50; webhook HMAC verification lines 180-195; reconciliation cron lines 78-80)
@@ -299,7 +300,7 @@ The following actions from `audit-history.md` were verified against the working 
 
 ## 11. Key findings / notes for future integrators
 
-- **Docs/images/** is empty. No visual diagrams exist yet. If design docs are needed, add to `docs/images/` or create new `.md` files.
+- **Docs/images/** contains new assets (2026-09-13): `reference calander1.jpg` (calendar reference diagram) and `Screenshot 2026-09-12 214831.png` (landing/checkout screenshot). Used for design documentation and integration guides.
 - **.workflows/** is empty. The workflow file created for this audit (`.workflows/project-audit-workflow.js`) is a temporary artifact; can be removed or moved to a permanent registry if needed.
 - **Memory directory:** No `memory/` directory exists in this repo (`C:\Users\kris0\.claude\projects\...` checked; not present). If long-term memory is needed, create `MEMORY.md` and individual `.md` memory files.
 - `.kilo/plans/` contains `1789036493898-booking-checkout-redesign.md` (23,359 bytes) — a visual/UX redesign plan. Not part of current core payment flow; kept for future phases.
@@ -307,3 +308,18 @@ The following actions from `audit-history.md` were verified against the working 
 ---
 
 *Documented and verified 2026-09-13 against working tree `5a6995c`. All file:line references checked against actual file contents. Nothing described from memory.*
+
+---
+
+## 12. Config & landing updates (2026-09-13)
+
+- `site-config.json` removed; `public/site-config.json` removed.
+- `src/config.js` added: embedded config module (packages, rooms, activities, theme, siteInfo). No external file fetch needed.
+- `src/catalog.js`: synchronized with `src/config.js`; import and comments updated.
+- `src/pages/landing.js`: embedded metaScript references config directly; closest-match package filter (`nights <= selectedNights`, sorted ascending difference); `rooms-grid` accommodations shown after packages; `renderRooms()` with capacity-based recommendations; `getSuggestedAddOns()` for additional activities.
+- `src/pages/landing_fixed.js`: removed (unreferenced by `worker.js`, redundant).
+- `src/pages/landing.js.bak`: removed (redundant backup with outdated `fetch` logic).
+- `docs/END_TO_END_SETUP_GUIDE.md`: updated with embedded config note and package/accommodation/activity selection rules.
+- `audit-history.md`: kept; references removed files (`catalog-meta.js`, `formatCurrency`) — no new ghost code added.
+
+**No redundant/repeated code:** `catalog.js` imports cleaned (unused `rooms`/`activities` import removed, comment updated); landing metaScript uses embedded variables; no leftover `fetch('/site-config.json')`; `config.js` packages are unique (5 entries); embedded `nightsBetween` kept intentionally for standalone HTML deployment; no ghost code (`catalog-meta.js`, `landing_fixed.js`, `landing.js.bak` absent).

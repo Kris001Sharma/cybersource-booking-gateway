@@ -2,6 +2,10 @@
 // never amounts. Swap this for a Sheet/DB lookup later without touching
 // anything else.
 
+// Catalog prices defined here; new SKUs synchronized with src/config.js rooms array.
+// For full customization (prices, descriptions, SKUs), edit src/config.js and reload the module.
+// The embedded config module (src/config.js) is the single source of truth — site-config.json has been removed.
+// Note: rooms/activities from config.js are referenced conceptually but not imported here to avoid redundant coupling.
 export const CATALOG = {
   "room-single": { name: "Single Room", price: 50, type: "room" },
   "room-double": { name: "Double Room", price: 70, type: "room" },
@@ -9,6 +13,11 @@ export const CATALOG = {
   "act-hike": { name: "Guided Hike", price: 20, type: "activity" },
   "act-spa": { name: "Spa Session", price: 30, type: "activity" },
   "act-dinner": { name: "Private Dinner", price: 25, type: "activity" },
+  // Room SKUs from src/config.js rooms array (deluxe, twin, triple, family added per customization)
+  "room-deluxe": { name: "Deluxe Room", price: 120, type: "room" },
+  "room-twin": { name: "Twin Room", price: 90, type: "room" },
+  "room-triple": { name: "Triple Room", price: 110, type: "room" },
+  "room-family": { name: "Family Room", price: 130, type: "room" },
   // Not a real bookable item — only for validating gateway connectivity
   // with a minimal, safe amount. Remove before real production use.
   "test-item": { name: "Connectivity Test", price: 1, type: "test" },

@@ -8,7 +8,16 @@
 
 ---
 
-## 1. What this module is (high-level)
+## Config change — embedded JS module (2026-09-13)
+
+`site-config.json` and `public/site-config.json` have been removed. The single source of truth is now `src/config.js`, which exports `packages`, `rooms`, `activities`, `theme`, and `siteInfo`. This fixes the deploy-time error where the worker could not locate the JSON config file ("metadata config / right config location is not found"). Update package/room/activity data directly in `src/config.js`.
+
+**Package recommendation logic (landing page):** When nights are selected, packages are filtered (`pkg.nights <= selectedNights`) and sorted by closest match to selected nights. The closest package is shown/recommended first.
+
+**Accommodation recommendations:** After packages, rooms (`rooms-grid`) are shown filtered by total guests (`adults + children`) based on capacity strings in `src/config.js`.
+
+**Additional activities:** When the cart contains only room SKUs (no package SKUs like `act-spa`, `act-hike`, `act-dinner`), the `getSuggestedAddOns()` logic recommends additional activities.
+
 
 This is a **standalone serverless checkout microsite** hosted on Cloudflare Workers + Pages. It handles:
 
