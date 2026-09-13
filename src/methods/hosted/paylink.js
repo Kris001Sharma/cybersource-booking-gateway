@@ -15,7 +15,7 @@ export async function createLink(request, env, ctx) {
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest });
+  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "paylink" });
   if (ctx?.waitUntil) ctx.waitUntil(bookingPromise);
   else await bookingPromise;
 
@@ -43,13 +43,14 @@ export async function handleWebhookEvent(payload, env) {
   const bookingId = payload?.purchaseInformation?.purchaseNumber;
   const status = payload?.status; // verify actual values against a real delivery
   if (bookingId && status) {
-    await updateBookingStatus(env, { bookingId, status: status === "COMPLETED" ? "paid" : status });
+    await updateBookingStatus(env, { bookingId, status: status === "COMPLETED" ? "paid" : status, paymentMethod: "paylink" });
   }
 }
 
 export function renderCheckoutPage(url) {
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Checkout</title></head>
+<!-- payment-method: paylink -->
 <body>
   <h2>Your booking</h2>
   <div id="cart">Loading...</div>

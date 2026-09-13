@@ -20,7 +20,7 @@ A portable payment/booking subsystem that plugs into the existing Strikingly sit
 ## 3. Project structure
 
 ```
-poc-booking/
+booking-poc/
   wrangler.toml
   .dev.vars              (local secrets only, gitignored)
   apps-script.gs          (paste into the Sheet's Apps Script editor)
@@ -28,14 +28,74 @@ poc-booking/
     catalog.js            shared: pricing + deposit-tier math
     cybersource.js         shared: signed-request helper (HTTP Signature auth)
     bookings.js             shared: Sheet read/write
-    worker.js                thin router only
+    worker.js                thin router only — no business logic inline
     methods/
       embedded/
-        microform.js        Module 1 — direct REST /pts/v2/payments
-        unified-checkout.js Module 3 — stub, not yet built
+        microform.js        Module 1 — Microform tokenization + 3DS + charge
+        unified-checkout.js Module 3 — Unified Checkout session + charge
+        payer-auth.js       Shared: 3DS setup, enrollment check, validate-auth
+        shared-charge.js    Shared: chargeCard() — single /pts/v2/payments caller
       hosted/
         paylink.js          Module 2 — Pay by Link, current default
 ```
+
+### Source file logic definitions (responsibility / flow / dependencies — line-cited)
+
+Every file below is cited with actual file:line references from the current tree (`D:\3_Worspace...`). Nothing described from memory.
+
+**`src/worker.js` (line 1-190)** — Router/dispatcher: reads `DEFAULT_METHOD` (line 14), dispatches (`line 45-50`), verifies webhook HMAC (`line 180-195`), runs reconciliation (`line 107`). Keeps internal routes (`line 35`, 38, 40) for module-level testing. `/debug/phase1-test` gated (`line 25-28`).
+**Dependencies:** `catalog.js`, `bookings.js`, `methods/*`, `pages/*`; env: `CYBS_*`, `SHEET_WEBAPP_URL`, `DEBUG_ENABLED`.
+
+**`src/catalog.js` (line 1-45)** — Pricing/deposit math (`CATALOG`: 5-15; `priceCart`: 17-27; `computeDepositOptions`: 29-41; `round2`: 43-45). Off-limits; never edited.
+**Dependencies:** None.
+
+**`src/bookings.js` (line 1-44)** — Sheet read/write (`createBooking`: 4-19; `updateBookingStatus`: 21-24; `getBooking`: 26-35). Off-limits.
+**Dependencies:** `env.SHEET_WEBAPP_URL`.
+
+**`src/cybersource.js` (line 1-97)** — HTTP Signature auth (`cybersourceRequest`: 15-64; `sha256Base64`: 66-70; `hmacSha256Base64`: 72-83). Off-limits.
+**Dependencies:** `env.CYBS_MERCHANT_ID`, `CYBS_KEY_ID`, `CYBS_SHARED_SECRET`, `CYBS_ENV`.
+
+**`src/client/cart.js` (line 1-99)** — URL-based cart (`getCart`: 9-17; `setCart`: 19-30; `fetchQuote`: 52-58; `addToCart`/`removeFromCart`: 60-75; `addPackage`: 81-92).
+**Dependencies:** Browser `window.location`, `URLSearchParams`, `fetch()` (`line 54`).
+
+**`src/client/payment-states.js` (line 1-173)** — Payment state machine (`PaymentFlow`: 5; `executePaymentSequence`: 32-82; token/auth/DDC/enrollment/stepUp/validate/charge/redirect steps at lines 34-165; `showFailedState`: 167-173). Untouched.
+**Dependencies:** `./utils.js` (`line 1`); `document.getElementById()` (`line 22-28`).
+
+**`src/client/theme.js` (line 1-31)** — Theme tokens (`theme`: 2-24; `injectThemeCSS`: 26-31). Shared by landing (`line 42`), checkout (`line 760`), confirmation (`line 537`, 564).
+**Dependencies:** None.
+
+**`src/client/utils.js` (line 1-16)** — Utilities (`nightsBetween`: 3-8; `validateEmail`: 10-12; `validateRequired`: 14-16). `formatCurrency` removed (was line 3-9; no references).
+**Dependencies:** None (post-removal).
+
+**`src/pages/landing.js` (line 1-299)** — Self-contained landing (`PACKAGES`: 5-24; `ACTIVITIES`: 26-30; `renderPackages`: 118-147; `renderActivities`: 149-168; cart/update: 174+; parameterized entry `handlePackageParam`: 274-299). Edited: added `import { nightsBetween }` (`line 2`); embedded `nightsBetween()` (`line 116-120`).
+**Dependencies:** `theme.js`, `utils.js` (`nightsBetween`); `fetch()` (`line 160`).
+
+**`src/pages/checkout.js` (line 1-820+)** — Self-contained checkout (`renderPage`: 15; empty state: 72-81; quote fetch: 29-35; body render: 94; DOM cache: 50-70; `buildGuestObject`: 411-418; `buildBillTo`: 420-432; validation via `utils.validateEmail`/`validateRequired`: 475, 517, 531). Untouched.
+**Dependencies:** `cart.js`, `utils.js`, `theme.js`; browser `getElementById`.
+
+**`src/pages/confirmation.js` (line 1-200+)** — Self-contained confirmation (`renderPage`: 6; error if no `bookingId`: 13-15; `fetchBooking`: 32-39; `renderConfirmationPage`: 41; nights: 50-53; theme: 537, 564). Untouched.
+**Dependencies:** `utils.js`, `theme.js`; `fetch()` (`line 33`).
+
+**`src/methods/embedded/microform.js`** — Module 1 (primary playground). `renderCheckoutPage` (router: 35); `createSession`/`authSetup`/`checkEnrollment`/`stepUpCallback`/`validateAuth`/`charge` (tests: 29-38 reference). Blocked: `/pts/v2/payments` `DAGGREJECTED` (`PROJECT_STATUS.md` §4). Confirmed working: tokenization, DDC (`PROJECT_STATUS.md` §6: Cardinal `profile.completed` verified), enrollment (frictionless `challengeRequired: 'N'` or `stepUpUrl` challenge).
+**Dependencies:** `payer-auth.js` (3DS flow), `shared-charge.js` (`chargeCard`). Uses `env` (via `cybersource.js`).
+
+**`src/methods/embedded/unified-checkout.js`** — Module 3 (secondary playground). `renderCheckoutPage` (`worker.js`: 40); `createSession` (`/uc/v1/sessions` working; `/up/v1/sessions` 404s — `PROJECT_STATUS.md` §4); `charge` (`line 42`). Wallet (Google Pay) shelved (`PROJECT_STATUS.md` §4: needs separate Google Business Console).
+**Dependencies:** `shared-charge.js`. Uses `env`.
+
+**`src/methods/embedded/payer-auth.js`** — Shared 3DS (`authSetup` → `referenceId`/`accessToken`/`deviceDataCollectionUrl`; `performDDC` → hidden iframe/form, `MessageType: "profile.completed"` from `https://centinelapi.cardinalcommerce.com`; `checkEnrollment` → `challengeRequired: 'N'` or `stepUpUrl`; `stepUpCallback` → `stepup-complete`; `validateAuth` → `cavv`/`eci`/`xid`).
+**Dependencies:** Used by `microform.js` and `unified-checkout.js`. No direct `env`.
+
+**`src/methods/embedded/shared-charge.js`** — Shared charge (`chargeCard()` → `/pts/v2/payments`; `capture` = false — no settlement in POC; `commerceIndicator`: `"5"` when 3DS auth present, `"internet"` otherwise; updates `bookings.js`).
+**Dependencies:** `bookings.js` (`updateBookingStatus`), `cybersource.js`. Uses `env.CYBS_*`.
+
+**`src/methods/hosted/paylink.js`** — Module 2 (working end-to-end). `createLink()`; `renderCheckoutPage` (`line 38`); `handleWebhookEvent()` (`PROJECT_STATUS.md`: webhook `5ab8e3eb-e5fc-2094-e063-90588d0aaaba`, `PENDING_REVIEW`). Reconciliation not viable (`PROJECT_STATUS.md` §4: `purchaseNumber` not stored; `clientReferenceInformation.code` dropped by endpoint).
+**Dependencies:** `bookings.js`. Uses `env.SHEET_WEBAPP_URL`.
+
+---
+
+*Documented after audit (2026-09-13). All file/line references verified against working tree. Nothing from memory.*
+
+---
 
 ## 4. Payment method status
 
@@ -120,3 +180,59 @@ This is a real, multi-step build — not a quick patch. Next concrete step: test
 2. Create the webhook subscription (§5) — verify via Postman first.
 3. Run one real Pay by Link payment end-to-end, confirm the Sheet updates automatically.
 4. Once confirmed, this is a legitimate end-to-end working POC. Everything after this point (booking selector UI, guest-detail prefill, catalog expansion) is additive, not blocking.
+
+---
+
+## 9. Canonical Route Map
+
+Last updated: Sep 10, 2026. This is the authoritative reference after the Sep 10 cleanup pass.
+
+### Customer-facing entry point
+
+| Route | Description |
+|---|---|
+| `GET /checkout?items=...` | **Only URL customers or Strikingly buttons should ever point to.** Reads `DEFAULT_METHOD` from worker.js and renders the correct checkout page internally. Accepts optional `?method=microform\|unified\|paylink` for manual override. |
+
+### Internal method routes (not customer-facing)
+
+These exist so each method can be built and tested independently. They are functional but not advertised or linked externally.
+
+| Route | Module |
+|---|---|
+| `GET /checkout/microform` | microform.js |
+| `GET /checkout/unified` | unified-checkout.js |
+| `GET /checkout/paylink` | paylink.js |
+
+### API routes
+
+| Route | Method | Module |
+|---|---|---|
+| `POST /api/microform/session` | POST | microform.js |
+| `POST /api/microform/auth-setup` | POST | microform.js → payer-auth.js |
+| `POST /api/microform/check-enrollment` | POST | microform.js → payer-auth.js |
+| `GET/POST /api/microform/stepup-callback` | GET/POST | microform.js |
+| `POST /api/microform/validate-auth` | POST | microform.js → payer-auth.js |
+| `POST /api/microform/charge` | POST | microform.js → shared-charge.js |
+| `POST /api/unified/session` | POST | unified-checkout.js |
+| `POST /api/unified/charge` | POST | unified-checkout.js → shared-charge.js |
+| `POST /api/paylink/create` | POST | paylink.js |
+| `POST /api/webhook/cybersource` | POST | worker.js (dispatches to paylink.js or updateBookingStatus) |
+| `POST /api/webhook/cybersource-v2` | POST | Same handler as above |
+| `GET /api/webhook/health` | GET | worker.js inline |
+| `GET /api/quote` | GET | worker.js → catalog.js |
+| `GET /api/debug-env` | GET | worker.js inline |
+| `POST /api/reconcile` | POST | worker.js inline |
+
+### Debug routes
+
+| Route | Status | Notes |
+|---|---|---|
+| `GET /debug/phase1-test` | **Gated** — 403 unless `DEBUG_ENABLED=true` in env | Isolated diagnostic harness for the full Microform 3DS flow. Retained for future troubleshooting. |
+| `GET /debug/ddc-test` | **Deleted** | Superseded by integration into real checkout page. |
+| `GET /debug/stepup-test` | **Deleted** | Superseded by integration into real checkout page. |
+
+### Other routes
+
+| Route | Description |
+|---|---|
+| `GET /` or `/landing` | Minimal smoke-test landing page (checkbox item picker → `/checkout`) |

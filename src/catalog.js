@@ -28,7 +28,7 @@ export function priceCart(skus) {
 
 export function computeDepositOptions(total) {
   let minDeposit;
-  if (total <= 100) minDeposit = 10;
+  if (total <= 100) minDeposit = 1;
   else if (total <= 200) minDeposit = 20;
   else if (total <= 300) minDeposit = 30;
   else minDeposit = Math.round(total * 0.1);

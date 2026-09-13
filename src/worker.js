@@ -3,11 +3,15 @@ import { updateBookingStatus } from "./bookings.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
 import * as paylink from "./methods/hosted/paylink.js";
+import * as landing from "./pages/landing.js";
+import * as checkout from "./pages/checkout.js";
+import * as confirmation from "./pages/confirmation.js";
+import { getBooking } from "./bookings.js";
 
 // Which module a plain /checkout?items=... link uses when no method is
 // specified. Change this one line to switch the site-wide default without
 // touching any button links on the actual website.
-const DEFAULT_METHOD = "paylink"; //"microform";
+const DEFAULT_METHOD = "microform"; // "paylink";
 
 export default {
   async fetch(request, env, ctx) {
@@ -48,12 +52,22 @@ export default {
     // ---- Shared webhook endpoint — one URL for all methods, dispatches by
     // recognizing which module's resource shape the payload matches. ----
     if (p === "/api/webhook/health") return new Response("ok");
-    if (p === "/" || p === "/landing") return renderMinimalLanding();
+    if (p === "/" || p === "/landing") return landing.renderPage(url);
     if ((p === "/api/webhook/cybersource" || p === "/api/webhook/cybersource-v2") && request.method === "POST")
       return handleWebhook(request, env);
 
     // Manual trigger for testing reconciliation without waiting for the cron
     if (p === "/api/reconcile" && request.method === "POST") return runReconciliation(env);
+
+    // New route for retrieving booking details (Phase 3 confirmation)
+    if (p === "/api/booking" && request.method === "GET") {
+      return handleGetBooking(url, env);
+    }
+
+    // New route for confirmation page (Phase 3)
+    if (p === "/confirmation") {
+      return confirmation.renderPage(url);
+    }
 
     return new Response("Not found", { status: 404 });
   },
@@ -65,6 +79,18 @@ export default {
     ctx.waitUntil(runReconciliation(env));
   },
 };
+
+async function handleGetBooking(url, env) {
+  const bookingId = url.searchParams.get("bookingId");
+  if (!bookingId) return json({ error: "bookingId required" }, 400);
+  const booking = await getBooking(env, bookingId);
+  if (!booking) return json({ error: "Booking not found" }, 404);
+  return json(booking);
+}
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
+}
 
 // Polling-based auto-reconciliation was confirmed NOT VIABLE: neither the
 // payment-link status field nor the transaction record carries our
@@ -129,31 +155,6 @@ function handleDebugEnv(env) {
     report[k] = v === undefined ? "MISSING" : v === "" ? "EMPTY_STRING" : `OK (length=${v.length})`;
   }
   return json(report);
-}
-
-// Bare-bones smoke test for the full click-through shape (landing -> pick
-// items -> checkout -> pay). NOT the real UI — that's handed off separately
-// per HANDOFF_BOOKING_UI.md. No dates, no styling, just proves the wiring.
-function renderMinimalLanding() {
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Sapana Village — Book (test)</title></head>
-<body>
-  <h2>Pick items (smoke test — not final UI)</h2>
-  <label><input type="checkbox" value="room-double"> Double Room — $70</label><br>
-  <label><input type="checkbox" value="room-suite"> Suite — $120</label><br>
-  <label><input type="checkbox" value="act-hike"> Guided Hike — $20</label><br>
-  <label><input type="checkbox" value="act-spa"> Spa Session — $30</label><br>
-  <label><input type="checkbox" value="test-item"> Connectivity Test — $1</label><br><br>
-  <button onclick="go()">Continue to checkout</button>
-  <script>
-    function go() {
-      const checked = [...document.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
-      if (!checked.length) { alert('Pick at least one item'); return; }
-      location.href = '/checkout?items=' + checked.join(',');
-    }
-  </script>
-</body></html>`;
-  return new Response(html, { headers: { "Content-Type": "text/html" } });
 }
 
 function renderPhase1TestPage(url) {
@@ -433,7 +434,7 @@ function renderPhase1TestPage(url) {
           const valResp = await fetch('/api/microform/validate-auth', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authenticationTransactionId: authTxId, bookingId: sessionData?.bookingId })
+            body: JSON.stringify({ authenticationTransactionId: authTxId })
           }).then(r => r.json());
 
           outEl.textContent = JSON.stringify(valResp, null, 2);
@@ -483,7 +484,7 @@ function renderPhase1TestPage(url) {
           log('5. Calling POST /api/microform/validate-auth (frictionless) with authenticationTransactionId: ' + authTxIdFrictionless);
           const valRespFrictionless = await fetch('/api/microform/validate-auth', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ authenticationTransactionId: authTxIdFrictionless, bookingId: sessionData?.bookingId })
+            body: JSON.stringify({ authenticationTransactionId: authTxIdFrictionless })
           }).then(r => r.json());
           outEl.textContent = JSON.stringify(valRespFrictionless, null, 2);
           const vcaiFrictionless = valRespFrictionless.consumerAuthenticationInformation || {};
@@ -531,8 +532,4 @@ function renderPhase1TestPage(url) {
 </body>
 </html>`;
   return new Response(html, { headers: { "Content-Type": "text/html" } });
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 }
