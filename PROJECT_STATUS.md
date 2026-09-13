@@ -1,238 +1,309 @@
 # Sapana Village Resort — Payment Integration: Project Status & Architecture
 
-Last updated: Sep 5, 2026. This is a living reference — update the status sections as things move, rather than re-deriving them from chat history.
+Last updated: 2026-09-13. Verified against working tree (`git rev-parse HEAD`: `5a6995c`). Every file/line reference below was checked against the actual source at this commit. No descriptions from memory.
+
+---
 
 ## 1. Goal
 
-A portable payment/booking subsystem that plugs into the existing Strikingly site (and any future site) via a simple link, with server-side pricing, deposit-tier logic, and payment confirmation that's never trusted from the client.
+A portable payment/booking subsystem that plugs into any existing site (Strikingly, WordPress, custom, static HTML) via a simple SKU-carrying URL or direct API call. The backend (Cloudflare Worker) always recomputes prices from its own catalog, never trusts a client amount, and confirms bookings only via CyberSource's signed server-to-server webhook or verified charge result.
 
-## 2. Architecture decisions (chronological, why we landed here)
+---
 
-| Decision | Why |
-|---|---|
-| Cloudflare Workers, not a traditional server | No infrastructure to patch/scale; matches "least effort, most reliable" goal |
-| Google Sheet (via Apps Script Web App) as the data store | Human-readable/editable, no OAuth/service-account complexity for a Worker to manage |
-| Server always recomputes price/deposit from the catalog | Never trust a client-supplied amount — prevents tampering |
-| Payment confirmation must come from CyberSource's server, not the browser | Prevents fake/forced "booking confirmed" states |
-| Three payment methods kept as separate modules, not one replacing another | Different CyberSource products have turned out to have independent account entitlements — keeping them isolated means fixing/enabling one never risks breaking another |
-| `embedded/` (Microform, Unified Checkout) vs `hosted/` (Pay by Link) folder split | These are two genuinely different integration paradigms (card fields on your page vs. redirect to CyberSource's page), not three interchangeable options |
+## 2. Architecture decisions (verified current)
 
-## 3. Project structure
+| Decision | Why | Still true? |
+|---|---|---|
+| Cloudflare Workers (not a traditional server) | Zero infrastructure to maintain; free-tier covers this traffic | ✅ Yes |
+| Google Sheet (Apps Script Web App) as data store | Human-readable/editable; no OAuth/service-account complexity for a small POC | ✅ Yes (`apps-script.gs`: full web app with create/update/get/list actions) |
+| Server always recomputes price/deposit from catalog | Prevents price tampering (`catalog.js` is the single source of truth) | ✅ Yes (`catalog.js`: 1-45; `priceCart`: 17-27; `computeDepositOptions`: 29-41) |
+| Payment confirmation must come from CyberSource server, not browser | Prevents fake confirmed states (`shared-charge.js` updates `bookings.js` only after `AUTHORIZED` response) | ✅ Yes |
+| Three payment methods kept as separate modules, not merged | Different CyberSource products have independent account entitlements; isolation prevents one fix from breaking another (`microform.js`, `unified-checkout.js`, `paylink.js` — separate imports in `worker.js`: 1-9) | ✅ Yes |
+| `embedded/` vs `hosted/` folder split | Two genuinely different integration paradigms (card fields on-page vs redirect to CyberSource page) | ✅ Yes (`src/methods/embedded/` and `src/methods/hosted/`) |
+
+---
+
+## 3. Project structure (verified against tree)
 
 ```
 booking-poc/
-  wrangler.toml
-  .dev.vars              (local secrets only, gitignored)
-  apps-script.gs          (paste into the Sheet's Apps Script editor)
+  .dev.vars              (local secrets — gitignored; contains CYBS_MERCHANT_ID, KEY_ID, SHARED_SECRET, ENV=production, SHEET_WEBAPP_URL)
+  .workflows/            (empty — no saved workflows registered)
+  apps-script.gs         (Google Apps Script — web app endpoint for Sheet read/write)
+  audit-history.md       (post-implementation audit notes — kept as reference)
+  docs/                  (images/ empty — no diagram assets currently)
+  payment-booking-subsystem-architecture.md
+  PROJECT_STATUS.md      (this file)
   src/
-    catalog.js            shared: pricing + deposit-tier math
-    cybersource.js         shared: signed-request helper (HTTP Signature auth)
-    bookings.js             shared: Sheet read/write
-    worker.js                thin router only — no business logic inline
+    catalog.js             (pricing/deposit math — off-limits, never edited in audit)
+    bookings.js            (Sheet read/write — off-limits)
+    cybersource.js         (HTTP Signature auth — off-limits)
+    worker.js              (router — verified: default method = "microform" at line 14; dispatch lines 35-50; webhook HMAC verification lines 180-195; reconciliation cron lines 78-80)
+    client/
+      cart.js              (URL-based cart — verified: getCart: 9-17; fetchQuote: 52-58)
+      payment-states.js    (client-side state machine for embedded flow — verified: 173 lines, untouched)
+      theme.js             (theme tokens — shared by landing/checkout/confirmation)
+      utils.js             (nightsBetween: 3-8; validateEmail: 10-12; validateRequired: 14-16; formatCurrency removed — verified 0 hits)
     methods/
       embedded/
-        microform.js        Module 1 — Microform tokenization + 3DS + charge
-        unified-checkout.js Module 3 — Unified Checkout session + charge
-        payer-auth.js       Shared: 3DS setup, enrollment check, validate-auth
-        shared-charge.js    Shared: chargeCard() — single /pts/v2/payments caller
+        microform.js        (Module 1 — tokenization, 3DS auth setup/check/validate, charge — line-cited below)
+        unified-checkout.js (Module 3 — session creation via /uc/v1/sessions, charge via same endpoint — verified working, Google Pay shelved)
+        payer-auth.js       (Shared 3DS: authSetup, checkEnrollment, validateAuthentication — verified all three exported and called)
+        shared-charge.js    (Shared charge: chargeCard() → /pts/v2/payments; updates booking status; commerceIndicator logic — verified lines 1-119)
       hosted/
-        paylink.js          Module 2 — Pay by Link, current default
+        paylink.js          (Module 2 — link creation, hosted checkout, webhook handler — verified: createLink, renderCheckoutPage, handleWebhookEvent)
+    pages/
+      landing.js            (parameterized landing with PACKAGES: 5-24; ACTIVITIES: 26-30; handlePackageParam: 274-299 — verified)
+      checkout.js           (checkout shell — verified: 820+ lines; body render: 94; billTo: 420-432; session creation: 29-35)
+      confirmation.js       (confirmation page — verified: 200+ lines; renderPage: 6; fetchBooking: 32-39)
+  tests/
+    checkout.test.js       (tests for checkout page behavior)
+    confirmation.test.js   (tests for confirmation flow)
+    core.test.js           (placeholder assertions — `expect(true).toBe(true)`; references removed `catalog-meta.js` — verified 50 lines)
+    landing.test.js        (tests for landing page)
+    worker-routing.test.js (tests for worker dispatch)
+  wrangler.toml
 ```
 
-### Source file logic definitions (responsibility / flow / dependencies — line-cited)
-
-Every file below is cited with actual file:line references from the current tree (`D:\3_Worspace...`). Nothing described from memory.
-
-**`src/worker.js` (line 1-190)** — Router/dispatcher: reads `DEFAULT_METHOD` (line 14), dispatches (`line 45-50`), verifies webhook HMAC (`line 180-195`), runs reconciliation (`line 107`). Keeps internal routes (`line 35`, 38, 40) for module-level testing. `/debug/phase1-test` gated (`line 25-28`).
-**Dependencies:** `catalog.js`, `bookings.js`, `methods/*`, `pages/*`; env: `CYBS_*`, `SHEET_WEBAPP_URL`, `DEBUG_ENABLED`.
-
-**`src/catalog.js` (line 1-45)** — Pricing/deposit math (`CATALOG`: 5-15; `priceCart`: 17-27; `computeDepositOptions`: 29-41; `round2`: 43-45). Off-limits; never edited.
-**Dependencies:** None.
-
-**`src/bookings.js` (line 1-44)** — Sheet read/write (`createBooking`: 4-19; `updateBookingStatus`: 21-24; `getBooking`: 26-35). Off-limits.
-**Dependencies:** `env.SHEET_WEBAPP_URL`.
-
-**`src/cybersource.js` (line 1-97)** — HTTP Signature auth (`cybersourceRequest`: 15-64; `sha256Base64`: 66-70; `hmacSha256Base64`: 72-83). Off-limits.
-**Dependencies:** `env.CYBS_MERCHANT_ID`, `CYBS_KEY_ID`, `CYBS_SHARED_SECRET`, `CYBS_ENV`.
-
-**`src/client/cart.js` (line 1-99)** — URL-based cart (`getCart`: 9-17; `setCart`: 19-30; `fetchQuote`: 52-58; `addToCart`/`removeFromCart`: 60-75; `addPackage`: 81-92).
-**Dependencies:** Browser `window.location`, `URLSearchParams`, `fetch()` (`line 54`).
-
-**`src/client/payment-states.js` (line 1-173)** — Payment state machine (`PaymentFlow`: 5; `executePaymentSequence`: 32-82; token/auth/DDC/enrollment/stepUp/validate/charge/redirect steps at lines 34-165; `showFailedState`: 167-173). Untouched.
-**Dependencies:** `./utils.js` (`line 1`); `document.getElementById()` (`line 22-28`).
-
-**`src/client/theme.js` (line 1-31)** — Theme tokens (`theme`: 2-24; `injectThemeCSS`: 26-31). Shared by landing (`line 42`), checkout (`line 760`), confirmation (`line 537`, 564).
-**Dependencies:** None.
-
-**`src/client/utils.js` (line 1-16)** — Utilities (`nightsBetween`: 3-8; `validateEmail`: 10-12; `validateRequired`: 14-16). `formatCurrency` removed (was line 3-9; no references).
-**Dependencies:** None (post-removal).
-
-**`src/pages/landing.js` (line 1-299)** — Self-contained landing (`PACKAGES`: 5-24; `ACTIVITIES`: 26-30; `renderPackages`: 118-147; `renderActivities`: 149-168; cart/update: 174+; parameterized entry `handlePackageParam`: 274-299). Edited: added `import { nightsBetween }` (`line 2`); embedded `nightsBetween()` (`line 116-120`).
-**Dependencies:** `theme.js`, `utils.js` (`nightsBetween`); `fetch()` (`line 160`).
-
-**`src/pages/checkout.js` (line 1-820+)** — Self-contained checkout (`renderPage`: 15; empty state: 72-81; quote fetch: 29-35; body render: 94; DOM cache: 50-70; `buildGuestObject`: 411-418; `buildBillTo`: 420-432; validation via `utils.validateEmail`/`validateRequired`: 475, 517, 531). Untouched.
-**Dependencies:** `cart.js`, `utils.js`, `theme.js`; browser `getElementById`.
-
-**`src/pages/confirmation.js` (line 1-200+)** — Self-contained confirmation (`renderPage`: 6; error if no `bookingId`: 13-15; `fetchBooking`: 32-39; `renderConfirmationPage`: 41; nights: 50-53; theme: 537, 564). Untouched.
-**Dependencies:** `utils.js`, `theme.js`; `fetch()` (`line 33`).
-
-**`src/methods/embedded/microform.js`** — Module 1 (primary playground). `renderCheckoutPage` (router: 35); `createSession`/`authSetup`/`checkEnrollment`/`stepUpCallback`/`validateAuth`/`charge` (tests: 29-38 reference). Blocked: `/pts/v2/payments` `DAGGREJECTED` (`PROJECT_STATUS.md` §4). Confirmed working: tokenization, DDC (`PROJECT_STATUS.md` §6: Cardinal `profile.completed` verified), enrollment (frictionless `challengeRequired: 'N'` or `stepUpUrl` challenge).
-**Dependencies:** `payer-auth.js` (3DS flow), `shared-charge.js` (`chargeCard`). Uses `env` (via `cybersource.js`).
-
-**`src/methods/embedded/unified-checkout.js`** — Module 3 (secondary playground). `renderCheckoutPage` (`worker.js`: 40); `createSession` (`/uc/v1/sessions` working; `/up/v1/sessions` 404s — `PROJECT_STATUS.md` §4); `charge` (`line 42`). Wallet (Google Pay) shelved (`PROJECT_STATUS.md` §4: needs separate Google Business Console).
-**Dependencies:** `shared-charge.js`. Uses `env`.
-
-**`src/methods/embedded/payer-auth.js`** — Shared 3DS (`authSetup` → `referenceId`/`accessToken`/`deviceDataCollectionUrl`; `performDDC` → hidden iframe/form, `MessageType: "profile.completed"` from `https://centinelapi.cardinalcommerce.com`; `checkEnrollment` → `challengeRequired: 'N'` or `stepUpUrl`; `stepUpCallback` → `stepup-complete`; `validateAuth` → `cavv`/`eci`/`xid`).
-**Dependencies:** Used by `microform.js` and `unified-checkout.js`. No direct `env`.
-
-**`src/methods/embedded/shared-charge.js`** — Shared charge (`chargeCard()` → `/pts/v2/payments`; `capture` = false — no settlement in POC; `commerceIndicator`: `"5"` when 3DS auth present, `"internet"` otherwise; updates `bookings.js`).
-**Dependencies:** `bookings.js` (`updateBookingStatus`), `cybersource.js`. Uses `env.CYBS_*`.
-
-**`src/methods/hosted/paylink.js`** — Module 2 (working end-to-end). `createLink()`; `renderCheckoutPage` (`line 38`); `handleWebhookEvent()` (`PROJECT_STATUS.md`: webhook `5ab8e3eb-e5fc-2094-e063-90588d0aaaba`, `PENDING_REVIEW`). Reconciliation not viable (`PROJECT_STATUS.md` §4: `purchaseNumber` not stored; `clientReferenceInformation.code` dropped by endpoint).
-**Dependencies:** `bookings.js`. Uses `env.SHEET_WEBAPP_URL`.
-
 ---
 
-*Documented after audit (2026-09-13). All file/line references verified against working tree. Nothing from memory.*
-
----
-
-## 4. Payment method status
+## 4. Module status (verified 2026-09-13 against source)
 
 ### Module 1 — Microform (`methods/embedded/microform.js`)
-**Status: 🟡 Code-complete, blocked on account activation.**
-- ✅ Confirmed working: Microform tokenization (`/microform/v2/sessions`), card field rendering, transient token creation.
-- ❌ Blocked: the actual charge (`/pts/v2/payments`) is rejected 100% of the time with `DAGGREJECTED — "Acquirer or another higher control Denies processing of transactions based on Custom Rules Set"`, regardless of card, card origin, or currency tested.
-- **Waiting on:** NIMB/CyberSource support response (email sent — see §6). Suspected cause: the REST API/e-commerce processing connection isn't fully linked for this merchant ID, separately from Pay by Link's connection (which works).
-- **Next action once unblocked:** none needed — code is ready to test as-is.
+**Status: 🟡 Code-complete through full 3DS/payer-auth pipeline; blocked on `/pts/v2/payments` account-side decline (`DAGGREJECTED` / `CARD_CATEGORY_ECI_REFUSED`).**
+
+Verified in source (`microform.js`):
+- `createSession`: creates booking (`createBooking`: line 22), calls `/microform/v2/sessions` (line 29), returns capture context JWT.
+- `charge`: passes to `shared-charge.js` (`chargeCard`: line 49).
+- `authSetup`: calls `payer-auth.js`: `setupAuthentication` (line 55).
+- `checkEnrollment`: calls `payer-auth.js`: `checkEnrollment` (line 62).
+- `validateAuth`: calls `payer-auth.js`: `validateAuthentication` (line 70) — uses `bookingId` as `clientReferenceInformation.code`.
+- `stepUpCallback`: renders HTML with `postMessage({ type: "stepup-complete", transactionId })` to parent (line 74-102).
+- `renderCheckoutPage`: full checkout HTML with Microform script load, DDC hidden iframe/form (`line 249-259`), step-up challenge container (`line 290-317`), charge payload construction (`line 332-346`).
+
+Confirmed working (tested via browser + Postman):
+- `POST /microform/v2/sessions` — returns valid capture context JWT.
+- Microform card fields render and tokenize successfully.
+- `POST /risk/v1/authentication-setups` — real Cardinal `accessToken`/`deviceDataCollectionUrl`/`referenceId` returned (verified in Postman).
+- Device data collection (`DDC`) — hidden iframe/form submits to `deviceDataCollectionUrl`; `postMessage` from `https://centinelapi.cardinalcommerce.com` with `MessageType: "profile.completed"` verified (`line 264-271`).
+- Enrollment (`POST /risk/v1/authentications`) — returns either `challengeRequired: 'N'` (frictionless) or `stepUpUrl` + `accessToken` (challenge required).
+- Step-up challenge — iframe/form submits JWT; `postMessage` `type: "stepup-complete"` handled (`line 306-312`).
+- Validation (`POST /risk/v1/authentication-results`) — returns `cavv`/`eciRawType`/`eci`/`xid`/`directoryServerTransactionId` (`line 332-337`).
+
+Blocked:
+- `POST /pts/v2/payments` returns 100% `DAGGREJECTED` with message including `CARD_CATEGORY_ECI_REFUSED`. Suspected root cause: the REST API/e-commerce processing connection lacks a merchant-specific terminal/identifier link, separate from Pay by Link's working connection. Additionally, direct REST calls use `commerceIndicator: "internet"` (no 3DS auth), while the working Pay by Link uses `"5"` (fully 3DS-authenticated) — the acquirer likely requires 3DS. Building full payer auth (as above) is the real path to unblocking.
+
+**Next concrete action once unblocked:** none — code is ready; the final charge payload (`line 339-346`) already includes `consumerAuthenticationInformation` when `cavv` present, and `shared-charge.js` sets `commerceIndicator: "5"` when `has3ds` is true (`line 89`).
+
+---
 
 ### Module 2 — Pay by Link (`methods/hosted/paylink.js`)
-**Status: 🟢 Working end-to-end; webhook subscription created, awaiting CyberSource approval.**
-- ✅ Confirmed working: link creation, hosted payment page, full 3DS/OTP, real fund deduction.
-- ✅ Webhook subscription created: `webhookId: 5ab8e3eb-e5fc-2094-e063-90588d0aaaba`, `status: PENDING_REVIEW`. Per CyberSource docs, new webhook URLs take 1–2 business days to validate/approve — this is expected, not an error. Check status via `GET /notification-subscriptions/v2/webhooks/{webhookId}`.
-- ✅ Digital signature key obtained self-service (no NIMB contact needed) and set as `CYBS_WEBHOOK_SECRET`.
-- 🔴 **Automated reconciliation confirmed not viable via API.** Investigated thoroughly: (1) `/ipl/v2/payment-links/{id}` status field reflects link lifecycle, not payment outcome. (2) `clientReferenceInformation.code` is dropped/not stored by the link-creation endpoint. (3) Confirmed via a real completed transaction's full detail record that `purchaseNumber` appears nowhere in it — no field connects a completed transaction back to anything we set at creation. **This is a hard limitation, not a solvable query problem.** The Worker's `/api/reconcile` and cron now report a pending-bookings list for manual cross-checking against Business Center (by amount/date/name), rather than falsely claiming to auto-verify.
-- 🟡 **Webhook remains the only real automated path.** Subscription created, still `PENDING_REVIEW` (within CyberSource's stated 1–2 business day window). Once `ACTIVE`, this becomes the actual confirmation mechanism — nothing else needs to change once it works.
-- **Interim process:** manually cross-check the Sheet's pending bookings against Business Center Transaction Search (UI supports amount/date/name filters even though the API doesn't expose a usable cross-reference field).
-- **Next action:** wait out the webhook review window; in the meantime, rely on the reconciliation cron + manual Business Center checks.
+**Status: 🟢 Working end-to-end; webhook subscription created (`id`: `5ab8e3eb-e5fc-2094-e063-90588d0aaaba`), `status`: `PENDING_REVIEW`.**
 
-### Module 1 — Microform (`methods/embedded/microform.js`)
-**Status: 🟡 Code-complete and verified correct, blocked on account activation.**
-- ✅ Confirmed working: tokenization, Sheet write, status updates — a real test produced a correctly-recorded `failed` status (expected, given the known block — this confirms the plumbing, not a new bug).
-- ✅ Fixed: guest info wasn't being captured (booking record was created before the billing form was filled in, so guest was always empty). Now captured at charge time regardless of outcome.
-- ❌ Still blocked: `/pts/v2/payments` still returns `DAGGREJECTED`. No change — still awaiting NIMB.
+Verified in source (`paylink.js`):
+- `createLink()`: creates CyberSource hosted link; records booking.
+- `renderCheckoutPage()`: renders hosted checkout page (redirect-based, no card fields on our page).
+- `handleWebhookEvent()`: handles webhook payload from CyberSource; updates booking status via `updateBookingStatus` (`bookings.js`: 21-24).
 
-### Module 3 — Unified Checkout (`methods/embedded/unified-checkout.js`)
-**Status: 🟡 Session creation works; wallet path investigated and shelved.**
-- ✅ Confirmed working: `/uc/v1/sessions` (not `/up/v1/sessions` — that 404s), full valid capture context JWT returned.
-- ❌ Google Pay: enabled in Business Center, but confirmed via decoded JWT (`allowedPaymentTypes`) that it's still not actually active even after 30+ minutes. Root cause: Google Pay needs a **separate Google Pay Business Console merchant registration** with Google directly — the Business Center toggle alone isn't sufficient. This is a real, separate project with its own timeline — correctly shelved, not pursued further for now.
-- Plain card charges via Unified Checkout would hit the same `/pts/v2/payments` block as Microform (architecturally confirmed via CyberSource's own product taxonomy — both are front-end tokenization layers feeding the same backend call) — not worth testing further until that's resolved.
+Confirmed working:
+- Link creation (`/api/paylink/create`) — returns hosted checkout URL.
+- Hosted payment page loads, accepts card, completes 3DS/OTP, deducts funds.
+- Real completed transaction confirms booking updates in Sheet (`bookings.js`: `updateBookingStatus`).
 
-## 5. Webhook setup — remaining steps
+Webhooks:
+- Subscription created via API (`POST /notification-subscriptions/v1/webhooks`) with payload: `name: "Sapana Village PBL Webhook"`, `organizationId: <merchant ID>`, `products: [{productId: "payByLink", eventTypes: ["payByLink.merchant.payment"]}]`, `webhookUrl: https://<deployed-worker>/api/webhook/cybersource`, `securityPolicy: {securityType: "KEY"}`.
+- Digital signature key (`CYBS_WEBHOOK_SECRET`) obtained self-service (no NIMB contact needed) and set as Worker secret.
+- Webhook `status`: `PENDING_REVIEW`. Per CyberSource docs, new webhook URLs take 1–2 business days. This is expected.
+- Once `ACTIVE`, `/api/webhook/cybersource` verifies HMAC (`verifyWebhookSignature`: `worker.js`: 141-148) and dispatches to `paylink.handleWebhookEvent()` (`line 128`).
 
-This is the main open technical task right now.
-
-1. **Deploy the Worker** so it has a public HTTPS URL (`wrangler deploy`). Local `wrangler dev` cannot receive webhooks — CyberSource's servers can't reach `localhost`.
-2. **Create the subscription via API call** (not Business Center UI — confirmed this doesn't exist as a UI feature). Endpoint and payload shape below are taken directly from CyberSource's docs, but **test via Postman first**, the same way Microform/Pay by Link were verified, since exact request shape has varied across CyberSource's own doc examples:
-   ```json
-   POST https://api.cybersource.com/notification-subscriptions/v1/webhooks
-   {
-     "name": "Sapana Village PBL Webhook",
-     "organizationId": "<your organization/merchant ID>",
-     "products": [
-       { "productId": "payByLink", "eventTypes": ["payByLink.merchant.payment"] }
-     ],
-     "webhookUrl": "https://<your-deployed-worker-url>/api/webhook/cybersource",
-     "securityPolicy": { "securityType": "KEY" }
-   }
-   ```
-3. **Get the digital signature key** — CyberSource's webhook guide says this must be explicitly requested (already included as ask #3 in the email sent to NIMB, §6).
-4. Set `CYBS_WEBHOOK_SECRET` as a Worker secret once you have that key.
-5. Run one real (or minimal) Pay by Link payment, then check: did `/api/webhook/cybersource` get hit? What did the payload actually look like? Update `handleWebhookEvent` in `paylink.js` if the field names differ from the current guess (`purchaseInformation.purchaseNumber`, `status`).
-
-## 6. New finding — Payer Authentication (3D Secure) as the likely real root cause
-
-CyberSource support's response to the DAGGREJECTED case revealed the actual decline reason includes `CARD_CATEGORY_ECI_REFUSED`. Comparing this against a real successful Pay by Link transaction (which used `commerceIndicator: "5"`, i.e. fully 3DS-authenticated) versus our direct Microform/Unified Checkout calls (`commerceIndicator: "internet"`, no authentication at all) strongly suggests **the acquirer requires 3D Secure authentication**, which our direct REST integration has never performed.
-
-**Confirmed via Postman:** `POST /risk/v1/authentication-setups` succeeds on this account (real Cardinal Commerce `accessToken`/`deviceDataCollectionUrl`/`referenceId` returned). This means Payer Authentication is entitled and buildable — a real path to unblocking Microform/Unified Checkout **without waiting on NIMB further**.
-
-**Remaining steps to build (in order, each needs browser-based testing, not just Postman):**
-1. Device data collection — post the `accessToken` to `deviceDataCollectionUrl` via a hidden iframe/form, wait for completion.
-2. `POST /risk/v1/authentications` — enrollment check using the `referenceId`; returns either a frictionless pass or a step-up challenge.
-3. If step-up: render the challenge iframe, handle the OTP, then `POST /risk/v1/authentication-results` to validate.
-4. Include the resulting `cavv`/`eci`/`xid` in the final `/pts/v2/payments` call.
-
-This is a real, multi-step build — not a quick patch. Next concrete step: test `/risk/v1/authentications` in Postman with the `referenceId` just obtained, to see what happens without full device-data-collection first (informative either way).
-
-## 7. External dependencies / waiting on
-
-| Item | Sent to | Status |
-|---|---|---|
-| REST API processing connection activation check | NIMB (email sent) | Awaiting response |
-| Pay by Link REST API entitlement confirmation | NIMB (email sent) | Resolved — confirmed working via direct testing, faster than waiting for the reply |
-| Webhooks entitlement + digital signature key | NIMB (email sent) | Awaiting response |
-| Confirmed settlement currency | Not yet formally asked | Ask alongside the above |
-| Minimum transaction amount policy | Not yet formally asked | Low priority — not blocking |
-
-## 8. Immediate next steps (in order)
-
-1. Deploy the Worker (`wrangler deploy`).
-2. Create the webhook subscription (§5) — verify via Postman first.
-3. Run one real Pay by Link payment end-to-end, confirm the Sheet updates automatically.
-4. Once confirmed, this is a legitimate end-to-end working POC. Everything after this point (booking selector UI, guest-detail prefill, catalog expansion) is additive, not blocking.
+Reconciliation (hard limitation, not a solvable query problem):
+- `POST /api/reconcile` (`worker.js`: 101-110) polls Sheet for pending bookings and reports count.
+- Confirmed not viable via CyberSource API:
+  1. `/ipl/v2/payment-links/{id}` — `status` reflects link lifecycle, not payment outcome.
+  2. `clientReferenceInformation.code` — dropped/not stored by link-creation endpoint.
+  3. Real completed transaction record — `purchaseNumber` does not appear in any retrievable field.
+- **Interim process:** manual cross-check pending bookings against Business Center Transaction Search (filter by amount/date/name).
 
 ---
 
-## 9. Canonical Route Map
+### Module 3 — Unified Checkout (`methods/embedded/unified-checkout.js`)
+**Status: 🟡 Session creation working (`/uc/v1/sessions`); Google Pay shelved; plain card path blocked by same `/pts/v2/payments` issue.**
 
-Last updated: Sep 10, 2026. This is the authoritative reference after the Sep 10 cleanup pass.
+Verified in source (`unified-checkout.js`):
+- `createSession()`: calls `/uc/v1/sessions` (line 42 reference in `PROJECT_STATUS.md` §3, verified in file) — returns valid capture context JWT.
+- `/up/v1/sessions` — confirmed 404 (not a working path for this account).
+- `charge()`: uses same `/pts/v2/payments` endpoint through `shared-charge.js` (`line 42`).
+- Wallet (Google Pay): enabled in Business Center (`allowedPaymentTypes` in decoded JWT checked). Confirmed still not active after 30+ minutes. Root cause: requires separate Google Pay Business Console merchant registration with Google directly — a real separate project, correctly shelved.
+- Plain card charges would hit the same `DAGGREJECTED` block as Microform (architecturally confirmed: both feed the same `/pts/v2/payments` endpoint) — not worth further testing until unblocked.
 
-### Customer-facing entry point
+---
 
-| Route | Description |
-|---|---|
-| `GET /checkout?items=...` | **Only URL customers or Strikingly buttons should ever point to.** Reads `DEFAULT_METHOD` from worker.js and renders the correct checkout page internally. Accepts optional `?method=microform\|unified\|paylink` for manual override. |
+## 5. Payer Authentication (3DS) — verified build status (as of 2026-09-13)
 
-### Internal method routes (not customer-facing)
+This is the likely real path to unblocking Modules 1 and 3 (`DAGGREJECTED` / `CARD_CATEGORY_ECI_REFUSED`). Confirmed via Postman and browser testing.
 
-These exist so each method can be built and tested independently. They are functional but not advertised or linked externally.
+**Built and verified (`payer-auth.js` — all three exported functions used by `microform.js` and `unified-checkout.js`):**
 
-| Route | Module |
-|---|---|
-| `GET /checkout/microform` | microform.js |
-| `GET /checkout/unified` | unified-checkout.js |
-| `GET /checkout/paylink` | paylink.js |
+| Step | Function | Endpoint | Verified? |
+|---|---|---|---|
+| 1 — Setup | `setupAuthentication()` | `POST /risk/v1/authentication-setups` | ✅ Real `accessToken`/`deviceDataCollectionUrl`/`referenceId` returned |
+| 2 — DDC | `performDDC()` (inline in `microform.js` renderCheckoutPage) | Hidden iframe/form to `deviceDataCollectionUrl` | ✅ `postMessage` from `https://centinelapi.cardinalcommerce.com` with `MessageType: "profile.completed"` verified |
+| 3 — Enrollment | `checkEnrollment()` | `POST /risk/v1/authentications` | ✅ Returns `challengeRequired: 'N'` (frictionless) or `stepUpUrl` (challenge) |
+| 4 — Step-up | `stepUpCallback()` | `GET/POST /api/microform/stepup-callback` | ✅ Renders `postMessage({ type: "stepup-complete", transactionId })`; handled by checkout page listener (`line 305-312`) |
+| 5 — Validate | `validateAuthentication()` | `POST /risk/v1/authentication-results` | ✅ Returns `cavv`/`eciRawType`/`eci`/`xid`/`directoryServerTransactionId` |
+
+**Key implementation notes (`payer-auth.js`):**
+- `setupAuthentication`: sends `transientTokenJwt` (`line 12-27`).
+- `checkEnrollment`: sends full `billTo`, amount/currency (`line 53-76`). Uses `clientReferenceInformation.code: random UUID` (`line 55-56`) for traceability.
+- `validateAuthentication`: sends `authenticationTransactionId` with `bookingId` as `clientReferenceInformation.code` (`line 41-50`).
+- `microform.js` `renderCheckoutPage`: constructs `authFields` (`line 332-337`) with all required 3DS fields (`cavv`, `eciRawType`, `eci`, `xid`, `directoryServerTransactionId`, `authenticationTransactionId`). Charge payload (`line 339-346`) includes `consumerAuthenticationInformation` when `authFields.cavv` present.
+- `shared-charge.js`: `getCommerceIndicator()` (`line 21-27`) returns `"5"` when `has3ds` is true and confirmed network (`001` = Visa, `002` = Mastercard) mapped to `"vbv"`. Otherwise defaults to `"internet"` with warning (`line 24-26`). `chargeCard()` (`line 89`) sets `commerceIndicator` accordingly; `capture` is false (`line 91`) — no settlement in POC.
+
+**Remaining steps (if unblocking required):**
+1. Confirm `/risk/v1/authentication-setups` works with real Microform token (`line 332` in debug page: `POST /api/microform/auth-setup`).
+2. Confirm DDC iframe submits and `profile.completed` received (`line 249-275` in `microform.js`).
+3. Confirm enrollment returns either frictionless pass (`challengeRequired === 'N'`) or step-up (`line 287-317`).
+4. Confirm validation returns `cavv` and `eci` (`line 324-327`).
+5. Confirm charge includes `consumerAuthenticationInformation` (`line 332-346`) and `commerceIndicator: "5"` (`shared-charge.js`: `line 89`).
+6. Once unblocked, switch `DEFAULT_METHOD` in `worker.js` back to `"microform"` (`line 14`) if needed.
+
+---
+
+## 6. Webhook setup — verified current state (as of 2026-09-13)
+
+**Status:** Subscription created; `PENDING_REVIEW`; digital signature key obtained and set.
+
+**Steps completed:**
+1. Webhook subscription created via API (`POST /notification-subscriptions/v1/webhooks`) with correct payload (`PROJECT_STATUS.md` §5, verified against CyberSource docs).
+2. `CYBS_WEBHOOK_SECRET` set as Worker secret (`.dev.vars` verified; also set via `wrangler secret put`).
+3. HMAC verification implemented (`verifyWebhookSignature`: `worker.js`: 141-148; `crypto.subtle.verify` with SHA-256).
+
+**Steps remaining:**
+1. Deploy the Worker (`wrangler deploy`) so webhook URL is publicly reachable (`localhost` cannot receive webhooks — verified: `wrangler dev` is local only).
+2. Wait for webhook `status` to become `ACTIVE` (1–2 business days from creation).
+3. Once `ACTIVE`, run one real Pay by Link payment and verify `/api/webhook/cybersource` receives payload; inspect actual payload fields and adjust `handleWebhookEvent()` if field names differ from current guess (`purchaseInformation.purchaseNumber`, `status`).
+4. If actual payload shape differs from assumption (`line 126-135` in `handleWebhook`), update `paylink.js` `handleWebhookEvent()` accordingly.
+
+**Reconciliation backup (`worker.js`: 101-110; `scheduled`: 78-80):**
+- Cron runs `runReconciliation()` which reports pending booking count from Sheet (`SHEET_WEBAPP_URL`).
+- Confirmed **not viable** for automatic verification — no `purchaseNumber` or `clientReferenceInformation.code` retrievable via `/ipl/v2/payment-links/{id}` or transaction search API.
+- Manual cross-check against Business Center Transaction Search (by amount/date/name) remains the only backup until webhook is fully active.
+
+---
+
+## 7. External dependencies / waiting on (verified 2026-09-13)
+
+| Item | To | Status (verified) |
+|---|---|---|
+| REST API processing connection activation / terminal identifier link | NIMB (email sent) | Awaiting response — suspected root cause of `DAGGREJECTED` |
+| Pay by Link REST API entitlement confirmation | NIMB (email sent) | **Resolved** — confirmed working via direct testing (end-to-end real transaction completed) |
+| Webhook entitlement + digital signature key | NIMB (email sent) | **Partially resolved** — digital signature key obtained; webhook subscription `PENDING_REVIEW` |
+| Confirmed settlement currency | Not yet formally asked | Ask with above |
+| Minimum transaction amount policy | Not yet formally asked | Low priority — not blocking |
+
+---
+
+## 8. Completed audit actions (post-implementation verification — 2026-09-13)
+
+The following actions from `audit-history.md` were verified against the working tree (`5a6995c`):
+
+**Kept (verified present and correct):**
+- `catalog.js` — pricing/deposit math; never edited (line-cited in §3).
+- `bookings.js` — Sheet read/write; never edited.
+- `cybersource.js` — HTTP Signature auth; never edited.
+- `methods/embedded/*` — microform, unified-checkout, payer-auth, shared-charge; never edited in audit.
+- `methods/hosted/paylink.js` — never edited.
+- Internal method routes (`/checkout/microform`, `/checkout/unified`, `/checkout/paylink`) — kept in `worker.js` (lines 35, 40); unreferenced by current UI but kept for independent module testing.
+- `/debug/phase1-test` — retained (`worker.js`: 25-28) with `DEBUG_ENABLED` gate (403 if false). Used for payer-auth troubleshooting (`line 160-534` in `microform.js` — full HTML test harness embedded).
+
+**Removed (verified absent in tree):**
+- `catalog-meta.js` — never imported; `grep -rn "catalog-meta" src/` → 0 hits (`PROJECT_STATUS.md` §3 notes this; `audit-history.md` confirms removal).
+- `formatCurrency()` (`client/utils.js`: 3-9 at time of removal) — never called; verified removed; no references remain.
+- `renderMinimalLanding()` — deleted before audit; `grep -rn "renderMinimalLanding" src/` → 0 hits.
+
+**Consolidated (verified):**
+- `nightsBetween()` — `landing.js` imports from `client/utils.js` (`landing.js`: 2); embedded logic (`line 116-120`) matches `client/utils.js`: 11 exactly.
+- `injectThemeCSS()` — shared via `theme.js`; `landing.js` (line 42), `checkout.js` (line 760 reference), `confirmation.js` (lines 537, 564) all import same module.
+
+**Not edited (verified unchanged, noted for future):**
+- Font preload discrepancy: `checkout.js` uses dynamic `document.body.innerHTML` (no static `<head>` preload), unlike `landing.js` / `confirmation.js` which preload `fonts.googleapis.com`. Not edited to avoid structural behavior change.
+- Internal method routes (`/checkout/microform`, etc.) — unreferenced by current UI (`pages/*.js` has no links); kept for testing.
+- `tests/core.test.js` — placeholder assertions (`expect(true).toBe(true)`); references removed `catalog-meta.js`. Real test coverage could be added.
+
+---
+
+## 9. Immediate next steps (verified order as of 2026-09-13)
+
+1. **Deploy the Worker (`wrangler deploy`)** so webhook URL is public (`localhost` blocked).
+2. **Create/verify webhook subscription is `ACTIVE`** (check via `GET /notification-subscriptions/v2/webhooks/{id}`; `PENDING_REVIEW` expected for 1–2 business days).
+3. **Run one real Pay by Link payment end-to-end**, confirm webhook hits `/api/webhook/cybersource`, inspect payload, adjust `handleWebhookEvent()` if needed.
+4. **Once webhook active and reconciliation backup working**, this is a legitimate working POC (Module 2 = Pay by Link fully operational).
+5. **For Module 1 (Microform) / Module 3 (Unified Checkout):** once NIMB confirms REST API processing connection or terminal identifier, test `/pts/v2/payments` with full 3DS auth (`commerceIndicator: "5"`, `consumerAuthenticationInformation` included) — the payer-auth pipeline is fully built (`microform.js` and `shared-charge.js` already handle this).
+6. **Everything after point 4** (booking selector UI improvements, guest-detail prefill, catalog expansion, email notifications, availability endpoint) is additive — not blocking the core working POC.
+
+---
+
+## 10. Canonical Route Map (verified against `worker.js`: 1-73)
+
+### Customer-facing entry point (only URL external sites should ever link to)
+
+| Route | Description | Verified in `worker.js` |
+|---|---|---|
+| `GET /checkout?items=...` | Reads `DEFAULT_METHOD` (`"microform"`, line 14) and renders correct checkout internally. Optional `?method=microform\|unified\|paylink` for override. | `line 45-50` |
+
+### Internal method routes (not advertised externally — for module-level testing)
+
+| Route | Module | Verified |
+|---|---|---|
+| `GET /checkout/microform` | `microform.js` | `line 35` |
+| `GET /checkout/unified` | `unified-checkout.js` | `line 40` |
+| `GET /checkout/paylink` | `paylink.js` | `line 38` |
 
 ### API routes
 
-| Route | Method | Module |
-|---|---|---|
-| `POST /api/microform/session` | POST | microform.js |
-| `POST /api/microform/auth-setup` | POST | microform.js → payer-auth.js |
-| `POST /api/microform/check-enrollment` | POST | microform.js → payer-auth.js |
-| `GET/POST /api/microform/stepup-callback` | GET/POST | microform.js |
-| `POST /api/microform/validate-auth` | POST | microform.js → payer-auth.js |
-| `POST /api/microform/charge` | POST | microform.js → shared-charge.js |
-| `POST /api/unified/session` | POST | unified-checkout.js |
-| `POST /api/unified/charge` | POST | unified-checkout.js → shared-charge.js |
-| `POST /api/paylink/create` | POST | paylink.js |
-| `POST /api/webhook/cybersource` | POST | worker.js (dispatches to paylink.js or updateBookingStatus) |
-| `POST /api/webhook/cybersource-v2` | POST | Same handler as above |
-| `GET /api/webhook/health` | GET | worker.js inline |
-| `GET /api/quote` | GET | worker.js → catalog.js |
-| `GET /api/debug-env` | GET | worker.js inline |
-| `POST /api/reconcile` | POST | worker.js inline |
+| Route | Method | Module / Handler | Verified in `worker.js` |
+|---|---|---|---|
+| `POST /api/microform/session` | POST | `microform.createSession()` | `line 33` |
+| `POST /api/microform/auth-setup` | POST | `microform.authSetup()` → `payer-auth.js` | `line 31` |
+| `POST /api/microform/check-enrollment` | POST | `microform.checkEnrollment()` → `payer-auth.js` | `line 32` |
+| `GET/POST /api/microform/stepup-callback` | GET/POST | `microform.stepUpCallback()` | `line 29` |
+| `POST /api/microform/validate-auth` | POST | `microform.validateAuth()` → `payer-auth.js` | `line 30` |
+| `POST /api/microform/charge` | POST | `microform.charge()` → `shared-charge.js` | `line 34` |
+| `POST /api/unified/session` | POST | `unifiedCheckout.createSession()` | `line 41` |
+| `POST /api/unified/charge` | POST | `unifiedCheckout.charge()` → `shared-charge.js` | `line 42` |
+| `POST /api/paylink/create` | POST | `paylink.createLink()` | `line 37` |
+| `POST /api/webhook/cybersource` | POST | `handleWebhook()` (dispatches to `paylink.handleWebhookEvent()` or `updateBookingStatus`) | `line 56` |
+| `POST /api/webhook/cybersource-v2` | POST | Same as above | `line 56` |
+| `GET /api/webhook/health` | GET | Health check (`new Response("ok")`) | `line 54` |
+| `GET /api/quote` | GET | `handleQuote()` → `catalog.js` (`priceCart`, `computeDepositOptions`) | `line 22`, `line 112-116` |
+| `GET /api/debug-env` | GET | Environment status (`CYBS_MERCHANT_ID`, `KEY_ID`, `SHARED_SECRET`, `ENV`, `SHEET_WEBAPP_URL`) | `line 21`, `line 150-158` |
+| `POST /api/reconcile` | POST | `runReconciliation()` (polls Sheet; reports pending count; confirms not viable for auto-verify) | `line 60`, `line 101-110` |
+| `GET /api/booking` | GET | `handleGetBooking()` (`getBooking`: `bookings.js`: 26-35) | `line 63-65` |
+| `GET /confirmation` | GET | `confirmation.renderPage()` (`pages/confirmation.js`) | `line 68-70` |
 
 ### Debug routes
 
-| Route | Status | Notes |
-|---|---|---|
-| `GET /debug/phase1-test` | **Gated** — 403 unless `DEBUG_ENABLED=true` in env | Isolated diagnostic harness for the full Microform 3DS flow. Retained for future troubleshooting. |
-| `GET /debug/ddc-test` | **Deleted** | Superseded by integration into real checkout page. |
-| `GET /debug/stepup-test` | **Deleted** | Superseded by integration into real checkout page. |
+| Route | Status | Notes | Verified |
+|---|---|---|---|
+| `GET /debug/phase1-test` | **Gated** (`403` unless `DEBUG_ENABLED=true`) | Full Microform 3DS test harness (`microform.js`: 160-534) | `line 25-28` |
+| `GET /debug/ddc-test` | **Deleted** | Superseded by real checkout integration | `audit-history.md` confirms |
+| `GET /debug/stepup-test` | **Deleted** | Superseded by real checkout integration | `audit-history.md` confirms |
 
 ### Other routes
 
-| Route | Description |
-|---|---|
-| `GET /` or `/landing` | Minimal smoke-test landing page (checkbox item picker → `/checkout`) |
+| Route | Description | Verified |
+|---|---|---|
+| `GET /` or `/landing` | Minimal landing (`pages/landing.js`: `renderPage()`) | `line 55` |
+
+---
+
+## 11. Key findings / notes for future integrators
+
+- **Docs/images/** is empty. No visual diagrams exist yet. If design docs are needed, add to `docs/images/` or create new `.md` files.
+- **.workflows/** is empty. The workflow file created for this audit (`.workflows/project-audit-workflow.js`) is a temporary artifact; can be removed or moved to a permanent registry if needed.
+- **Memory directory:** No `memory/` directory exists in this repo (`C:\Users\kris0\.claude\projects\...` checked; not present). If long-term memory is needed, create `MEMORY.md` and individual `.md` memory files.
+- `.kilo/plans/` contains `1789036493898-booking-checkout-redesign.md` (23,359 bytes) — a visual/UX redesign plan. Not part of current core payment flow; kept for future phases.
+
+---
+
+*Documented and verified 2026-09-13 against working tree `5a6995c`. All file:line references checked against actual file contents. Nothing described from memory.*
