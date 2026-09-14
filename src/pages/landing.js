@@ -57,9 +57,9 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 .card .includes li::before { content: "— "; color: var(--accent); }
 .card .price-range { font-weight: 600; color: var(--text-primary); font-size: 1.05rem; margin-bottom: 14px; }
 .card .img-placeholder { height: 120px; border-radius: var(--radius-md); background: linear-gradient(135deg, #e8ddd0 0%, #d6c9b6 100%); display: flex; align-items: center; justify-content: center; font-family: "Playfair Display", serif; font-size: 1.8rem; color: var(--text-secondary); opacity: 0.65; margin-bottom: 16px; }
-.btn { display: inline-block; padding: 10px 20px; border-radius: var(--radius-md); background: var(--accent); color: #fff; text-decoration: none; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.25s ease, box-shadow 0.25s ease; }
+.btn { display: inline-block; padding: 10px 20px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.25s ease, box-shadow 0.25s ease; }
 .btn:hover { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(184,92,56,0.25); transform: translateY(-2px); }
-.btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); transition: all 0.25s ease, box-shadow 0.25s ease; }
+.btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; transition: all 0.25s ease, box-shadow 0.25s ease; }
 .btn-outline:hover { background: var(--accent-light); box-shadow: 0 4px 16px rgba(184,92,56,0.15); transform: translateY(-1px); }
 .cart-footer { position: sticky; bottom: 0; background: rgba(250,247,242,0.92); backdrop-filter: blur(8px); border-top: 1px solid var(--warm-gray); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; max-width: 1120px; margin: 40px auto 0; border-radius: var(--radius-md) var(--radius-md) 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.03); }
 .cart-footer .total { font-weight: 600; font-size: 1.05rem; }
@@ -84,16 +84,37 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     <h1>Sapana Village</h1>
     <p>A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.</p>
     <div class="booking-widget" id="booking-widget">
-      <div class="date-triggers" style="display:flex;gap:16px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:24px;">
-        <button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
-          <span style="font-size:1.1rem;">&#128197;</span>
-          <span id="checkin-display" style="font-weight:500;">Check-in</span>
-        </button>
-        <span style="color:var(--accent);font-size:1.3rem;font-weight:300;">&#8594;</span>
-        <button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
-          <span style="font-size:1.1rem;">&#128197;</span>
-          <span id="checkout-display" style="font-weight:500;">Check-out</span>
-        </button>
+      <!-- Compact horizontal row: dates + guests -->
+      <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:24px;">
+        <!-- Dates -->
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
+            <span style="font-size:1.1rem;">&#128197;</span>
+            <span id="checkin-display" style="font-weight:500;">Check-in</span>
+          </button>
+          <span style="color:var(--accent);font-size:1.3rem;font-weight:300;">&#8594;</span>
+          <button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
+            <span style="font-size:1.1rem;">&#128197;</span>
+            <span id="checkout-display" style="font-weight:500;">Check-out</span>
+          </button>
+        </div>
+
+        <!-- Guests -->
+        <div class="guest-picker" style="padding:16px 20px;background:rgba(255,255,255,0.55);backdrop-filter:blur(12px);border:1px solid var(--glass-border);border-radius:var(--radius-lg);box-shadow:0 4px 20px rgba(44,36,31,0.06);display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+          <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:1rem;margin:0;color:var(--text-primary);">Guests</h4>
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="updateGuests('adults', -1)" aria-label="Decrease adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
+              <div style="text-align:center;min-width:48px;"><span id="guest-adults-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">2</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Adults</span></div>
+              <button onclick="updateGuests('adults', 1)" aria-label="Increase adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <button onclick="updateGuests('children', -1)" aria-label="Decrease children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
+              <div style="text-align:center;min-width:48px;"><span id="guest-children-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">0</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Children</span></div>
+              <button onclick="updateGuests('children', 1)" aria-label="Increase children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="night-count-row" style="text-align:center;margin-top:14px;font-size:0.95rem;color:var(--text-secondary);font-weight:500;min-height:24px;"></div>
 
@@ -118,50 +139,16 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
         </div>
       </div>
 
-      <!-- Guest picker -->
-      <div class="guest-picker" style="margin-top:28px;padding:20px 24px;background:rgba(255,255,255,0.55);backdrop-filter:blur(12px);border:1px solid var(--glass-border);border-radius:var(--radius-xl);box-shadow:0 4px 20px rgba(44,36,31,0.06);text-align:center;">
-        <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:1.1rem;margin-bottom:4px;color:var(--text-primary);">Guests</h4>
-        <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px;">Who is joining your retreat?</p>
-        <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button onclick="updateGuests('adults', -1)" aria-label="Decrease adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
-            <div style="text-align:center;min-width:48px;"><span id="guest-adults-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">2</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Adults</span></div>
-            <button onclick="updateGuests('adults', 1)" aria-label="Increase adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <button onclick="updateGuests('children', -1)" aria-label="Decrease children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
-            <div style="text-align:center;min-width:48px;"><span id="guest-children-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">0</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Children</span></div>
-            <button onclick="updateGuests('children', 1)" aria-label="Increase children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Room details card -->
-      <div id="room-details-card" class="card" style="margin-top:28px;background:linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(250,247,242,0.85) 100%);border:1px solid rgba(232,226,217,0.6);border-radius:var(--radius-xl);padding:24px;box-shadow:0 8px 32px rgba(44,36,31,0.06);position:relative;overflow:hidden;">
-        <div style="position:absolute;top:0;right:0;width:120px;height:120px;background:linear-gradient(135deg, var(--accent-light) 0%, transparent 60%);border-radius:50%;transform:translate(30px,-40px);opacity:0.6;"></div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-          <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--accent);font-weight:700;background:var(--accent-light);padding:4px 10px;border-radius:var(--radius-sm);">Package</span>
-          <span id="room-night-badge" style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.7);padding:4px 10px;border-radius:var(--radius-sm);">Select dates</span>
-        </div>
-        <h3 id="room-name" style="font-size:1.4rem;margin-bottom:6px;color:var(--text-primary);font-family:'Playfair Display',Georgia,serif;">3-Night Wellness Retreat</h3>
-        <p id="room-desc" style="color:var(--text-secondary);font-size:0.92rem;line-height:1.55;margin-bottom:16px;">A restorative stay with guided practices, healthy meals, and time to reconnect with nature.</p>
-        <ul id="room-includes" style="margin-bottom:16px;padding-left:0;list-style:none;">
-          <li style="font-size:0.88rem;color:var(--text-muted);padding:2px 0;"><span style="color:var(--accent);margin-right:6px;">&#8212;</span>Daily breakfast</li>
-          <li style="font-size:0.88rem;color:var(--text-muted);padding:2px 0;"><span style="color:var(--accent);margin-right:6px;">&#8212;</span>3 spa sessions</li>
-          <li style="font-size:0.88rem;color:var(--text-muted);padding:2px 0;"><span style="color:var(--accent);margin-right:6px;">&#8212;</span>Sunset yoga</li>
-        </ul>
-        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid var(--warm-gray);">
-          <div>
-            <div id="room-price" style="font-size:1.25rem;font-weight:700;color:var(--text-primary);">$280 &#8211; $340</div>
-            <div style="font-size:0.8rem;color:var(--text-muted);">per stay &#183; includes selected nights</div>
-          </div>
-          <a href="#" onclick="scrollToPackages();return false;" class="btn" style="padding:10px 22px;border-radius:var(--radius-md);text-decoration:none;background:var(--accent);color:#fff;font-weight:600;font-size:0.9rem;transition:all 0.2s;">View Packages</a>
-        </div>
-      </div>
-    </div>
   </section>
 
-  <section aria-label="Packages">
+  <!-- Our Signature Packages -->
+  <section aria-label="Signature Packages" style="margin-top: 36px;">
+    <h2>Our Signature Packages</h2>
+    <p style="color:var(--text-secondary);margin-bottom:20px;">Handpicked retreats designed for rest, renewal, and connection.</p>
+    <div id="signature-grid" class="catalog-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+  </section>
+
+  <section aria-label="Packages" style="margin-top: 60px;">
     <h2>Packages</h2>
     <div style="position:relative;">
       <button onclick="scrollCarousel(-1)" aria-label="Previous packages" style="position:absolute;left:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10094;</button>
@@ -170,9 +157,9 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     </div>
   </section>
 
-  <section aria-label="Accommodations">
+  <section aria-label="Accommodations" style="margin-top: 60px;">
     <h2>Accommodations</h2>
-    <p style="color:var(--text-secondary);margin-bottom:20px;">Based on your guests, here are recommended rooms.</p>
+    <p style="color:var(--text-secondary);margin-bottom:20px;">All room types available at Sapana Village.</p>
     <div id="rooms-grid" class="catalog-grid"></div>
   </section>
 
@@ -254,8 +241,29 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
         '<div>' + featuredBadge + '<div class="theme-tag">' + pkg.theme + '</div></div>' +
         '<h3>' + pkg.name + '</h3>' +
         '<p>' + pkg.description + '</p>' +
-        '<ul class="includes">' + includesHtml + '</ul>' +
-        '<div class="price-range">' + pkg.priceRange + nightsText + '</div>';
+        '<ul class="includes">' + includesHtml + '</ul>';
+      const priceDiv = document.createElement('div');
+      priceDiv.style.cssText = 'margin-bottom:14px;';
+        const priceLabel = document.createElement('div');
+        priceLabel.style.cssText = 'font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;';
+        priceLabel.textContent = 'Pricing options';
+        priceDiv.appendChild(priceLabel);
+        const btnWrap = document.createElement('div');
+        btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+        const fbBtn = document.createElement('button');
+        fbBtn.className = 'btn';
+        fbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:var(--accent);opacity:1;';
+        fbBtn.textContent = 'Full Board ' + pkg.fullBoard;
+        fbBtn.addEventListener('click', () => selectPricing(fbBtn, pkg.fullBoard, pkg.bb));
+        const bbBtn = document.createElement('button');
+        bbBtn.className = 'btn';
+        bbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:rgba(255,255,255,0.35);color:var(--text-muted);border:1px solid var(--glass-border);opacity:0.55;';
+        bbBtn.textContent = 'B&B ' + pkg.bb;
+        bbBtn.addEventListener('click', () => selectPricing(bbBtn, pkg.fullBoard, pkg.bb));
+        btnWrap.appendChild(fbBtn);
+        btnWrap.appendChild(bbBtn);
+        priceDiv.appendChild(btnWrap);
+        card.appendChild(priceDiv);
       const btn = document.createElement('button');
       btn.className = 'btn';
       btn.textContent = 'Add package';
@@ -278,8 +286,16 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     return notIncluded.slice(0, 2);
   }
   function renderAddOns() {
-    const suggestions = getSuggestedAddOns();
+    // Hide suggested add-ons until dates or a room type is selected
+    const datesSelected = selectedCheckin && selectedCheckout;
+    const roomsSelected = getCart().some(s => s.startsWith('room-'));
     let container = document.getElementById('add-on-section');
+    if (!datesSelected && !roomsSelected) {
+      if (container) container.style.display = 'none';
+      return;
+    }
+    if (container) container.style.display = '';
+    const suggestions = getSuggestedAddOns();
     if (!container) {
       container = document.createElement('section');
       container.id = 'add-on-section';
@@ -310,10 +326,27 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
       grid.appendChild(card);
     }
   }
+  function selectPricing(btn, fb, bb) {
+    const parent = btn.parentElement;
+    const buttons = parent.querySelectorAll('button');
+    buttons.forEach(b => { b.style.opacity = '0.55'; b.style.background = 'rgba(255,255,255,0.35)'; b.style.color = 'var(--text-muted)'; b.style.border = '1px solid var(--glass-border)'; });
+    btn.style.opacity = '1'; btn.style.background = 'var(--accent)'; btn.style.color = '#fff'; btn.style.border = 'none';
+    btn.textContent = 'Full Board ' + fb;
+    const other = Array.from(buttons).find(b => b !== btn);
+    if (other) other.textContent = 'B&B ' + bb;
+  }
   function scrollCarousel(dir) {
     const grid = document.getElementById('packages-grid');
     const scrollAmount = 340;
     grid.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
+    // Loop from end to start
+    setTimeout(() => {
+      if (dir > 0 && grid.scrollLeft + grid.clientWidth >= grid.scrollWidth - 5) {
+        grid.scrollTo({ left: 0, behavior: 'smooth' });
+      } else if (dir < 0 && grid.scrollLeft <= 5) {
+        grid.scrollTo({ left: grid.scrollWidth - grid.clientWidth, behavior: 'smooth' });
+      }
+    }, 350);
   }
   // Auto-rotate carousel with pause on interaction
   let carouselInterval = null;
@@ -430,10 +463,6 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   // Calendar-based event handling
   document.getElementById('btn-checkin').addEventListener('click', () => openCalendar('checkin'));
   document.getElementById('btn-checkout').addEventListener('click', () => openCalendar('checkout'));
-  renderPackages();
-  renderActivities();
-  renderAddOns();
-  updateCartUI();
 
   // Parameterized landing entry point (?package= support from addendum)
   (function handlePackageParam() {
@@ -553,15 +582,8 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
     const nightRow = document.getElementById('night-count-row');
     nightRow.textContent = nights > 0 ? nights + ' night' + (nights > 1 ? 's' : '') + ' selected' : '';
-    const badge = document.getElementById('room-night-badge');
-    badge.textContent = nights > 0 ? nights + ' Night' + (nights > 1 ? 's' : '') : 'Select dates';
-    const allPkgs = Object.values(PACKAGES || {});
-    const matchedPkg = nights > 0 ? allPkgs.find(p => p.nights === nights) || allPkgs.find(p => p.nights <= nights) || allPkgs[0] : allPkgs[0];
-    const pkg = matchedPkg || PACKAGES['package-3night-retreat'];
-    document.getElementById('room-name').textContent = pkg ? pkg.name : '3-Night Wellness Retreat';
-    document.getElementById('room-desc').textContent = pkg ? pkg.description : 'A restorative stay with guided practices, healthy meals, and time to reconnect with nature.';
-    document.getElementById('room-includes').innerHTML = pkg && pkg.includes ? pkg.includes.map(i => '<li style="font-size:0.88rem;color:var(--text-muted);padding:2px 0;"><span style="color:var(--accent);margin-right:6px;">&#8212;</span>' + i + '</li>').join('') : '<li><span style="color:var(--accent);margin-right:6px;">&#8212;</span>Daily breakfast</li><li><span style="color:var(--accent);margin-right:6px;">&#8212;</span>3 spa sessions</li><li><span style="color:var(--accent);margin-right:6px;">&#8212;</span>Sunset yoga</li>';
-    document.getElementById('room-price').textContent = pkg ? pkg.priceRange : '$280 – $340';
+    renderPackages();
+    renderRooms();
   }
   function updateGuests(type, delta) {
     const val = guests[type] + delta;
@@ -573,19 +595,9 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   }
   function renderRooms() {
     const grid = document.getElementById('rooms-grid'); if (!grid) return; grid.innerHTML = '';
-    const totalGuests = guests.adults + guests.children;
     const roomEntries = Object.entries(ROOMS || {});
-    // Filter/recommend rooms by capacity matching total guests
-    const matched = roomEntries.filter(([k, r]) => {
-      const capStr = (r.capacity || '').toLowerCase();
-      const adultMatch = capStr.includes('adult');
-      const childMatch = capStr.includes('child');
-      // Simple heuristic: include rooms that can accommodate at least this many guests
-      const maxAdults = (capStr.match(/(\d+) adult/gi) || []).map(s => parseInt(s)).reduce((a,b)=>Math.max(a,b), 1);
-      const maxChildren = (capStr.match(/(\d+) child/gi) || []).map(s => parseInt(s)).reduce((a,b)=>Math.max(a,b), 0);
-      return (maxAdults >= guests.adults) && (maxChildren >= guests.children);
-    });
-    const displayRooms = matched.length ? matched : roomEntries;
+    // Show all room types
+    const displayRooms = roomEntries;
     for (const [key, r] of displayRooms) {
       const card = document.createElement('div');
       card.className = 'card';
@@ -608,17 +620,86 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     await updateCartUI();
     renderRooms();
   }
+  function renderSignaturePackages() {
+    const grid = document.getElementById('signature-grid'); if (!grid) return; grid.innerHTML = '';
+    const featuredPkgs = Object.entries(PACKAGES).filter(([k, pkg]) => pkg.featured).slice(0, 3);
+    for (const [key, pkg] of featuredPkgs) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const includesHtml = pkg.includes.map(i => '<li>' + i + '</li>').join('');
+      const imgUrl = pkg.imageUrl || pkg.image || '';
+      const imgDisplay = imgUrl ? '<img src="' + imgUrl + '" alt="' + pkg.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (pkg.theme || pkg.name || 'Image') + '</div>';
+      const featuredBadge = '<span style="display:inline-block;background:var(--accent);color:#fff;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:var(--radius-sm);margin-bottom:8px;font-weight:600;">Most Popular</span>';
+      card.innerHTML = imgDisplay +
+        '<div>' + featuredBadge + '<div class="theme-tag">' + pkg.theme + '</div></div>' +
+        '<h3>' + pkg.name + '</h3>' +
+        '<p>' + pkg.description + '</p>' +
+        '<ul class="includes">' + includesHtml + '</ul>';
+      const priceDiv = document.createElement('div');
+      priceDiv.style.cssText = 'margin-bottom:14px;';
+        const priceLabel = document.createElement('div');
+        priceLabel.style.cssText = 'font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;';
+        priceLabel.textContent = 'Pricing options';
+        priceDiv.appendChild(priceLabel);
+        const btnWrap = document.createElement('div');
+        btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+        const fbBtn = document.createElement('button');
+        fbBtn.className = 'btn';
+        fbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:var(--accent);opacity:1;';
+        fbBtn.textContent = 'Full Board ' + pkg.fullBoard;
+        fbBtn.addEventListener('click', () => selectPricing(fbBtn, pkg.fullBoard, pkg.bb));
+        const bbBtn = document.createElement('button');
+        bbBtn.className = 'btn';
+        bbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:rgba(255,255,255,0.35);color:var(--text-muted);border:1px solid var(--glass-border);opacity:0.55;';
+        bbBtn.textContent = 'B&B ' + pkg.bb;
+        bbBtn.addEventListener('click', () => selectPricing(bbBtn, pkg.fullBoard, pkg.bb));
+        btnWrap.appendChild(fbBtn);
+        btnWrap.appendChild(bbBtn);
+        priceDiv.appendChild(btnWrap);
+        card.appendChild(priceDiv);
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = 'Add package';
+      btn.addEventListener('click', () => addPackage(key));
+      card.appendChild(btn);
+      grid.appendChild(card);
+    }
+  }
   function renderActivities() {
-    // If cart has only room SKUs (no package SKUs), recommend additional activities
-    renderAddOns();
+    const grid = document.getElementById('activities-grid'); if (!grid) return; grid.innerHTML = '';
+    // Dummy a-la-carte activities — always show details
+    const dummyActs = [
+      { name: 'Sunset Yoga Session', desc: 'A guided yoga practice at golden hour with mountain views.', price: '$25', imagePlaceholder: 'Yoga' },
+      { name: 'Private Dinner Experience', desc: 'Chef-curated meal under the stars using local ingredients.', price: '$45', imagePlaceholder: 'Dining' },
+      { name: 'Mountain Photography Walk', desc: 'Guided trail with stops at scenic viewpoints for photography.', price: '$30', imagePlaceholder: 'Trail' },
+    ];
+    for (const act of dummyActs) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = '<div class="img-placeholder">' + act.imagePlaceholder + '</div><h3>' + act.name + '</h3><p>' + act.desc + '</p><div style="margin-bottom:12px;font-size:0.9rem;color:var(--text-muted);">' + act.price + ' per person</div>';
+      const btn3 = document.createElement('button');
+      btn3.className = 'btn btn-outline';
+      btn3.textContent = 'Add to stay';
+      btn3.addEventListener('click', () => addDummyActivity(act));
+      card.appendChild(btn3);
+      grid.appendChild(card);
+    }
+  }
+  function addDummyActivity(act) {
+    // Dummy add logic — just show visual feedback
+    alert('Added: ' + act.name);
   }
   function scrollToPackages() {
     document.querySelector('.catalog-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   // Initialize calendar
   renderCalendarGrid();
+  renderSignaturePackages();
   renderPackages();
   renderRooms();
+  renderActivities();
+  renderAddOns();
+  updateCartUI();
 </script>
 </body>
 </html>`;
