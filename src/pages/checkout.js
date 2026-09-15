@@ -791,7 +791,7 @@ function applyDesignTokens() {
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
       box-shadow: var(--glass-shadow);
-      font-family: 'Inter', sans-serif;
+      font-family: 'DM Sans', sans-serif;
     }
 
     .hidden {
@@ -799,7 +799,7 @@ function applyDesignTokens() {
     }
 
     h1, h2, h3 {
-      font-family: 'Playfair Display', serif;
+      font-family: 'DM Sans', sans-serif;
       color: var(--text-primary);
     }
 

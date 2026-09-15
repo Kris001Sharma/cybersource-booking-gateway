@@ -78,7 +78,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
       <!-- Google Fonts -->
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
       <style>
         ${injectThemeCSS()}
@@ -90,7 +90,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
         }
 
         body {
-          font-family: 'Inter', sans-serif;
+          font-family: 'DM Sans', sans-serif;
           background: linear-gradient(135deg, var(--sand) 0%, var(--cream) 100%);
           min-height: 100vh;
           color: var(--text-primary);
@@ -133,7 +133,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
         }
 
         .confirmation-header h1 {
-          font-family: 'Playfair Display', serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 2.5rem;
           font-weight: 700;
           margin-bottom: 8px;
@@ -149,7 +149,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
         }
 
         .guest-name {
-          font-family: 'Playfair Display', serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 1.5rem;
           color: var(--accent);
           margin: 20px 0;
@@ -213,7 +213,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
         }
 
         .items-summary h3 {
-          font-family: 'Playfair Display', serif;
+          font-family: 'DM Sans', sans-serif;
           font-size: 1.25rem;
           margin-bottom: 16px;
           color: var(--text-primary);
@@ -273,7 +273,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
         }
 
         .next-steps h3 {
-          font-family: 'Playfair Display', serif;
+          font-family: 'DM Sans', sans-serif;
           color: var(--success);
           margin-bottom: 12px;
         }
@@ -545,7 +545,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
   if (!document.querySelector('link[href*="fonts.googleapis.com"]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap';
     document.head.appendChild(link);
   }
 }

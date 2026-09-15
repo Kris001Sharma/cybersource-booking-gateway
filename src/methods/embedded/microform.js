@@ -107,7 +107,7 @@ export function renderCheckoutPage(url) {
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Checkout — Microform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${injectThemeCSS()}
   :root { --ink: #2c241f; --muted: #75685e; --line: #e6ddd3; --panel: rgba(255,255,255,.72); }
   * { box-sizing: border-box; }
@@ -118,16 +118,16 @@ export function renderCheckoutPage(url) {
   button { cursor: pointer; }
   .checkout-page { position: relative; max-width: 1160px; margin: 0 auto; padding: 34px 24px 64px; }
   .checkout-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 34px; }
-  .brand { color: var(--accent); font-family: "Playfair Display", Georgia, serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; }
+  .brand { color: var(--accent); font-family: "DM Sans", system-ui, sans-serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; }
   .secure-note { color: var(--text-muted); font-size: .8rem; display: flex; align-items: center; gap: 6px; }
   .secure-note span { color: var(--success); font-size: 1rem; }
   .checkout-intro { margin-bottom: 28px; }
   .eyebrow { color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 9px; }
-  .checkout-intro h1 { font-family: "Playfair Display", Georgia, serif; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; margin: 0 0 10px; letter-spacing: -.03em; }
+  .checkout-intro h1 { font-family: "DM Sans", system-ui, sans-serif; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; margin: 0 0 10px; letter-spacing: -.03em; }
   .checkout-intro p { color: var(--muted); margin: 0; max-width: 620px; line-height: 1.6; }
   .checkout-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 22px; align-items: start; }
   .checkout-card { background: var(--panel); border: 1px solid rgba(255,255,255,.85); border-radius: 22px; box-shadow: 0 16px 46px rgba(44,36,31,.09); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); padding: clamp(20px, 3vw, 32px); }
-  .checkout-card h2 { font-family: "Playfair Display", Georgia, serif; font-size: 1.55rem; margin: 0 0 22px; }
+  .checkout-card h2 { font-family: "DM Sans", system-ui, sans-serif; font-size: 1.55rem; margin: 0 0 22px; }
   .checkout-card h3 { color: var(--ink); font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; margin: 27px 0 14px; }
   .checkout-card h3:first-child { margin-top: 0; }
   .cart-list { display: grid; gap: 9px; }

@@ -35,48 +35,84 @@ export function renderPage(url) {
 <title>Sapana Village — Book</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <style>
 ${injectThemeCSS()}
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--cream); color: var(--text-primary); font-family: "Inter", system-ui, sans-serif; }
-h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
+html, body { margin: 0; padding: 0; background: var(--cream); color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; }
+h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
 .container { max-width: 1120px; margin: 0 auto; padding: 32px 20px; }
 .hero-shell { width: 100%; padding: 0; overflow: hidden; background: var(--cream); }
-.hero { position: relative; width: 100%; min-height: 620px; text-align: center; padding: 96px 20px 72px; overflow: hidden; background: url('${bgUrl}') center top/cover no-repeat; color: #fff; }
+.hero { position: relative; width: 100%; min-height: 680px; text-align: center; padding: 30px 20px 112px; overflow: hidden; background: url('${bgUrl}') center top/cover no-repeat; color: #fff; display: flex; flex-direction: column; align-items: center; }
 .hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(44,36,31,0.28), rgba(44,36,31,0.52)); z-index: 0; pointer-events: none; }
 .hero > * { position: relative; z-index: 1; }
+.hero-header { width: min(100%, 1120px); display: flex; align-items: center; justify-content: flex-start; }
+.hero-logo { display: block; width: 172px; height: 88px; object-fit: contain; object-position: left center; filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0,0,0,.25)); }
+.hero-copy { margin: auto 0 30px; }
 .hero h1 { font-size: clamp(2.8rem, 7vw, 5rem); letter-spacing: -0.03em; line-height: 1.05; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
 .hero p { font-size: 1.2rem; color: rgba(255,255,255,0.92); margin-top: 14px; max-width: 540px; margin-left: auto; margin-right: auto; }
-.booking-widget { width: min(100%, 920px); margin: 30px auto 0; }
-.booking-panel { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr); gap: 16px; align-items: stretch; }
-.booking-card { min-height: 92px; padding: 18px 20px; border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.18); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 36px rgba(44,36,31,0.14); }
+.booking-widget { width: min(100%, 1040px); margin: 0 auto; }
+.booking-panel { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 0; align-items: stretch; padding: 8px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.2); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 12px 38px rgba(44,36,31,0.2); }
+.booking-card { min-height: 112px; padding: 16px 22px; border-radius: 10px; background: transparent; border-right: 1px solid rgba(255,255,255,.3); display: flex; flex-direction: column; justify-content: space-between; }
+.booking-card:last-child { border-right: 0; }
+.booking-card-title { display: block; color: #fff; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; letter-spacing: .01em; margin-bottom: 14px; text-align: left; }
+.date-picker-card .date-row-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 18px; flex: 1; }
+.date-field { min-width: 0; }
+.date-field-label { display: none; }
 .date-picker { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
-.date-trigger { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 132px; height: 54px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.34); background: rgba(255,255,255,0.18); color: #fff; font-family: "Inter", system-ui, sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; white-space: nowrap; }
-.date-trigger:hover, .date-trigger:focus-visible { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.62); outline: none; transform: translateY(-1px); box-shadow: 0 5px 18px rgba(44,36,31,0.16); }
-.date-trigger.selected { background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 16px rgba(184,92,56,0.3); }
-.date-trigger.selected:hover, .date-trigger.selected:focus-visible { background: var(--accent-hover); border-color: var(--accent-hover); }
-.date-trigger .material-icons-outlined { font-size: 1.15rem; }
-.date-divider { color: rgba(255,255,255,0.9); font-size: 1.2rem; font-weight: 300; }
-.guest-picker { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.guest-picker h4 { flex: 0 0 auto; margin: 0; color: #fff; font-family: "Inter", system-ui, sans-serif; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; }
-.guest-options { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.guest-control { display: flex; align-items: center; gap: 10px; }
+.date-trigger { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 132px; height: 48px; padding: 8px 12px; border: 0; background: transparent; color: #fff; font-family: "DM Sans", system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: color 0.2s ease, background .2s ease; white-space: nowrap; border-radius: 10px; }
+.date-trigger:hover, .date-trigger:focus-visible { color: #ffe2d6; background: rgba(255,255,255,.12); outline: none; }
+.date-trigger.selected { color: #fff; }
+.date-trigger .material-icons-outlined { font-size: 1.25rem; }
+.date-divider { color: #fff; font-size: 1.8rem; font-weight: 500; line-height: 1; text-shadow: 0 2px 8px rgba(44,36,31,.3); }
+.guest-options { display: flex; align-items: center; justify-content: space-evenly; gap: 24px; flex: 1; flex-wrap: nowrap; }
+.guest-control { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; }
 .guest-control button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.72); background: transparent; color: #fff; font-size: 1.2rem; font-weight: 300; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.15s ease, color 0.15s ease; }
 .guest-control button:hover, .guest-control button:focus-visible { background: #fff; color: var(--accent); outline: none; }
-.guest-value { text-align: center; min-width: 48px; }
-.guest-value strong, .guest-value span { display: block; font-family: "Inter", system-ui, sans-serif; }
+.guest-value { display: flex; align-items: center; justify-content: center; gap: 7px; text-align: center; min-width: 58px; }
+.guest-icon { flex: 0 0 auto; width: 22px; height: 22px; color: rgba(255,255,255,.9); margin-right: 2px; }
+.guest-value strong, .guest-value span { display: block; font-family: "DM Sans", system-ui, sans-serif; }
 .guest-value strong { color: #fff; font-size: 1.05rem; font-weight: 600; }
-.guest-value span { color: rgba(255,255,255,0.78); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.guest-value > span:last-child { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.guest-value span { color: rgba(255,255,255,0.78); font-size: 0.76rem; text-transform: none; letter-spacing: 0.01em; }
+.guest-value strong { line-height: 1.1; font-size: 1.15rem; }
+.guest-control > .guest-value { order: 2; }
+.guest-control > .guest-icon { order: 1; }
+.guest-control > button:last-child { order: 3; }
+.packages-section { scroll-margin-top: 76px; }
+.booking-summary-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 90; display: none; visibility: hidden; padding: 10px 20px; background: rgba(250,247,242,.92); border-bottom: 1px solid var(--warm-gray); box-shadow: 0 8px 24px rgba(44,36,31,.12); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.booking-summary-bar.is-visible { display: block; visibility: visible; animation: slideDown .22s ease both; }
+.booking-summary-inner { width: min(100%, 1120px); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.booking-summary-details { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.booking-summary-item { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: .84rem; white-space: nowrap; }
+.booking-summary-item strong { color: var(--text-primary); font-size: .9rem; }
+.booking-summary-item.stay-date { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+.booking-summary-item.stay-date small { color: var(--text-muted); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; }
+.booking-summary-icon { color: var(--accent); width: 18px; height: 18px; flex: 0 0 auto; }
+.booking-summary-separator { width: 1px; height: 24px; background: var(--warm-gray); }
+.cart-footer { position: fixed; left: 20px; right: 20px; bottom: 18px; z-index: 80; background: rgba(250,247,242,.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.85); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; max-width: 1120px; margin: 0 auto; border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(44,36,31,.16); }
+.cart-footer-content { min-width: 0; }
+.cart-items-list { display: flex; flex-wrap: wrap; gap: 5px; max-width: 720px; }
+.cart-item { display: inline-flex; align-items: center; background: var(--accent-light); padding: 4px 8px; border-radius: var(--radius-sm); color: var(--text-primary); font-size: .78rem; }
+.cart-item a { color: var(--error); text-decoration: none; font-weight: 700; margin-left: 5px; }
+.cart-meta { color: var(--text-secondary); font-size: .84rem; margin-top: 5px; }
+.cart-total { color: var(--accent); font-size: 1.05rem; font-weight: 700; }
+.cart-actions { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.cart-clear { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--warm-gray); border-radius: 50%; background: transparent; color: var(--error); cursor: pointer; }
+.cart-clear:hover, .cart-clear:focus-visible { background: var(--error-bg); outline: none; }
+.cart-clear svg { width: 18px; height: 18px; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
 .night-count-row { min-height: 24px; margin-top: 14px; color: #fff; font-size: 0.95rem; font-weight: 600; text-align: center; text-shadow: 0 1px 10px rgba(44,36,31,0.35); }
 .night-count-row.is-preview { color: #ffe2d6; }
 .calendar-overlay { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 20px; background: rgba(44,36,31,0.42); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); animation: fadeInUp 0.25s ease; }
 .calendar-modal { position: relative; width: 100%; max-width: 520px; padding: 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--warm-white); box-shadow: 0 24px 60px rgba(44,36,31,0.28); }
 .calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.calendar-status { color: var(--text-primary); font-family: "Inter", system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; }
+.calendar-status { color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; }
 .calendar-clear { border: none; background: transparent; color: var(--accent); cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 600; padding: 4px; }
 .calendar-clear:hover, .calendar-clear:focus-visible { color: var(--accent-hover); outline: none; }
+.calendar-select { width: 100%; margin-top: 22px; border: 0; border-radius: var(--radius-md); background: var(--accent); color: #fff; padding: 12px 18px; font-family: inherit; font-weight: 600; cursor: pointer; }
+.calendar-select:disabled { background: var(--warm-gray); color: var(--text-muted); cursor: not-allowed; }
 .calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .calendar-nav button { width: 36px; height: 36px; border: none; border-radius: 50%; background: transparent; color: var(--accent); cursor: pointer; font-size: 1.1rem; }
 .calendar-nav button:hover, .calendar-nav button:focus-visible { background: var(--accent-light); outline: none; }
@@ -103,7 +139,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 .card .theme-badge { position: absolute; top: 14px; right: 14px; z-index: 3; background: rgba(255,255,255,0.92); color: var(--accent); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 12px; border-radius: 4px; box-shadow: 0 2px 8px rgba(44,36,31,0.12); }
 /* Title over image - white with subtle shadow */
 .card .img-title-overlay { position: absolute; bottom: 14px; left: 14px; right: 14px; z-index: 2; }
-.card .img-title-overlay h3 { font-family: "Playfair Display", Georgia, serif; font-size: 1.35rem; color: #fff; text-shadow: 0 2px 12px rgba(44,36,31,0.6); margin: 0 0 4px; line-height: 1.15; }
+.card .img-title-overlay h3 { font-family: "DM Sans", system-ui, sans-serif; font-size: 1.35rem; color: #fff; text-shadow: 0 2px 12px rgba(44,36,31,0.6); margin: 0 0 4px; line-height: 1.15; }
 .card .img-title-overlay .nights-info { font-size: 0.85rem; color: rgba(255,255,255,0.92); text-shadow: 0 1px 8px rgba(44,36,31,0.5); }
 /* Default visible text area below image */
 .card .card-body { padding: 14px 18px 10px; background: var(--glass-white); }
@@ -126,8 +162,6 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 .btn:hover { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(184,92,56,0.25); transform: translateY(-2px); }
 .btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; transition: all 0.25s ease, box-shadow 0.25s ease; }
 .btn-outline:hover { background: var(--accent-light); box-shadow: 0 4px 16px rgba(184,92,56,0.15); transform: translateY(-1px); }
-.cart-footer { position: sticky; bottom: 0; background: rgba(250,247,242,0.92); backdrop-filter: blur(8px); border-top: 1px solid var(--warm-gray); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; max-width: 1120px; margin: 40px auto 0; border-radius: var(--radius-md) var(--radius-md) 0 0; box-shadow: 0 -4px 20px rgba(0,0,0,0.03); }
-.cart-footer .total { font-weight: 600; font-size: 1.05rem; }
 .activity-section { margin-top: 60px; }
 .activity-section h2 { font-size: 1.8rem; margin-bottom: 6px; }
 .activity-section p.subtitle { color: var(--text-secondary); margin-bottom: 20px; }
@@ -138,12 +172,30 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 .card { animation: fadeInUp 0.35s ease both; }
 .empty-state { color: var(--text-muted); font-style: italic; padding: 16px 0; animation: fadeInUp 0.4s ease; }
 @media (max-width: 760px) {
-  .hero { min-height: 0; padding: 72px 16px 56px; }
-  .booking-panel { grid-template-columns: 1fr; }
-  .date-picker { flex-wrap: wrap; }
+  .hero { min-height: 0; padding: 24px 16px 48px; }
+  .hero-copy { margin: 92px 0 30px; }
+  .hero-logo { width: 148px; height: 76px; }
+  .booking-panel { grid-template-columns: 1fr; gap: 0; padding: 8px; }
+  .booking-card { border-right: 0; border-bottom: 1px solid rgba(255,255,255,.3); }
+  .booking-card:last-of-type { border-bottom: 0; }
+  .booking-card { min-height: 0; }
+  .booking-card-title { margin-bottom: 12px; }
+  .date-picker-card .date-row-controls { grid-template-columns: 1fr; gap: 2px; }
+  .date-divider { transform: rotate(90deg); margin: -2px auto; }
   .date-trigger { flex: 1 1 150px; }
-  .guest-picker { justify-content: space-between; }
+  .guest-options { justify-content: space-between; gap: 14px; }
   .guest-options { gap: 14px; }
+}
+@media (max-width: 760px) {
+  .booking-summary-bar { padding: 9px 12px; }
+  .booking-summary-inner { display: block; }
+  .booking-summary-details { justify-content: space-between; gap: 8px; overflow-x: auto; }
+  .booking-summary-item { font-size: .72rem; gap: 5px; }
+  .booking-summary-item strong { font-size: .76rem; }
+  .booking-summary-separator { display: none; }
+  .cart-footer { left: 10px; right: 10px; bottom: 10px; padding: 10px 12px; }
+  .cart-items-list { max-width: calc(100vw - 150px); max-height: 42px; overflow: hidden; }
+  .cart-actions .btn { padding: 9px 12px; font-size: .8rem; }
 }
 @media (max-width: 600px) {
   .catalog-grid { grid-template-columns: 1fr; }
@@ -154,35 +206,51 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 </style>
 </head>
 <body>
+<div id="booking-summary-bar" class="booking-summary-bar" aria-live="polite">
+  <div class="booking-summary-inner">
+    <div class="booking-summary-details">
+      <div class="booking-summary-item stay-date"><svg class="booking-summary-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M7 3.5v3M17 3.5v3M3.5 9h17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><small>Check-in</small><strong id="summary-checkin">Select date</strong></div>
+      <span class="booking-summary-separator" aria-hidden="true"></span>
+      <div class="booking-summary-item stay-date"><svg class="booking-summary-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M7 3.5v3M17 3.5v3M3.5 9h17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><small>Check-out</small><strong id="summary-checkout">Select date</strong></div>
+      <span class="booking-summary-separator" aria-hidden="true"></span>
+      <div class="booking-summary-item"><svg class="booking-summary-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18.7 15.8A7.5 7.5 0 0 1 8.2 5.3 7.5 7.5 0 1 0 18.7 15.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path></svg><strong id="summary-nights">0 nights</strong></div>
+      <span class="booking-summary-separator" aria-hidden="true"></span>
+      <div class="booking-summary-item"><svg class="booking-summary-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M5.5 20c.7-3.4 2.8-5.2 6.5-5.2s5.8 1.8 6.5 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><strong id="summary-adults">2 Adults</strong></div>
+      <div class="booking-summary-item"><svg class="booking-summary-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="7.5" r="2.7" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M7.2 20c.4-3.1 2-4.8 4.8-4.8s4.4 1.7 4.8 4.8M8.1 12.5h7.8M10 12.5l-1.4 2.2M14 12.5l1.4 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><strong id="summary-children">0 Children</strong></div>
+    </div>
+  </div>
+</div>
 <section class="hero-shell">
   <section class="hero" aria-label="Hero">
-    <h1>Sapana Village</h1>
-    <p>A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.</p>
+    <header class="hero-header"><img class="hero-logo" src="${siteInfo.logoUrl || ''}" alt="${siteInfo.siteName || 'Sapana Village'}"></header>
+    <div class="hero-copy"><h1>Sapana Village</h1>
+    <p>A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.</p></div>
     <div class="booking-widget" id="booking-widget">
       <div class="booking-panel">
         <div class="booking-card date-picker-card">
-          <button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date">
+          <h3 class="booking-card-title">When would you like to stay?</h3>
+          <div class="date-row-controls"><div class="date-field"><button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date">
             <span class="material-icons-outlined">calendar_today</span>
             <span id="checkin-display">Check-in</span>
-          </button>
+          </button></div>
           <span class="date-divider" aria-hidden="true">&#8594;</span>
-          <button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date">
+          <div class="date-field"><button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date">
             <span class="material-icons-outlined">calendar_today</span>
             <span id="checkout-display">Check-out</span>
-          </button>
+          </button></div></div>
         </div>
 
         <div class="booking-card guest-picker">
-          <h4>Guests</h4>
+          <h3 class="booking-card-title">Who are you traveling with?</h3>
           <div class="guest-options">
             <div class="guest-control">
               <button onclick="updateGuests('adults', -1)" aria-label="Decrease adults">&#8722;</button>
-              <div class="guest-value"><strong id="guest-adults-display">2</strong><span>Adults</span></div>
+              <svg class="guest-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M5.5 20c.7-3.4 2.8-5.2 6.5-5.2s5.8 1.8 6.5 5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><div class="guest-value"><strong id="guest-adults-display">2</strong><span>Adults</span></div>
               <button onclick="updateGuests('adults', 1)" aria-label="Increase adults">+</button>
             </div>
             <div class="guest-control">
               <button onclick="updateGuests('children', -1)" aria-label="Decrease children">&#8722;</button>
-              <div class="guest-value"><strong id="guest-children-display">0</strong><span>Children</span></div>
+              <svg class="guest-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="7.5" r="2.7" fill="none" stroke="currentColor" stroke-width="1.8"></circle><path d="M7.2 20c.4-3.1 2-4.8 4.8-4.8s4.4 1.7 4.8 4.8M8.1 12.5h7.8M10 12.5l-1.4 2.2M14 12.5l1.4 2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg><div class="guest-value"><strong id="guest-children-display">0</strong><span>Children</span></div>
               <button onclick="updateGuests('children', 1)" aria-label="Increase children">+</button>
             </div>
           </div>
@@ -205,6 +273,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
             <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
           </div>
           <div id="calendar-grid" class="calendar-grid"></div>
+          <button type="button" onclick="confirmCalendarSelection()" id="calendar-select" class="calendar-select" disabled>Select dates</button>
         </div>
       </div>
 
@@ -219,7 +288,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     <div id="signature-grid" class="catalog-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
   </section>
 
-  <section aria-label="Packages" style="margin-top: 60px;">
+  <section aria-label="Packages" class="packages-section" style="margin-top: 60px;">
     <h2>Packages</h2>
     <div style="position:relative;">
       <button onclick="scrollCarousel(-1)" aria-label="Previous packages" style="position:absolute;left:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10094;</button>
@@ -249,12 +318,12 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   </section>
 
   <div class="cart-footer" id="cart-footer" style="display:none;">
-    <div>
-      <div id="cart-items-list" style="font-size:0.85rem; color:var(--text-secondary); line-height:1.4; margin-bottom:4px;"></div>
-      <div><span id="cart-items-label">0 items</span> <span style="margin-left:8px; color:var(--text-muted);">·</span> <span style="margin-left:8px;" id="cart-total">$0</span></div>
+    <div class="cart-footer-content">
+      <div id="cart-items-list" class="cart-items-list"></div>
+      <div class="cart-meta"><span id="cart-items-label">0 items</span><span aria-hidden="true"> · </span><span>Total</span> <span class="cart-total" id="cart-total">$0</span></div>
     </div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <a href="#" class="btn" onclick="clearCart(event)" style="font-size:0.8rem; padding:6px 12px;">Clear</a>
+    <div class="cart-actions">
+      <button type="button" class="cart-clear" onclick="clearCart(event)" aria-label="Clear cart" title="Clear cart"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 7h14M10 11v6M14 11v6M8 7l1-2h6l1 2m-9 0 1 14h8l1-14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
       <a href="#" class="btn" onclick="goCheckout(event)">Checkout</a>
     </div>
   </div>
@@ -281,7 +350,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   }
   function showDateError(msg) {
     let el = document.getElementById('date-error');
-    if (!el) { el = document.createElement('div'); el.id = 'date-error'; el.style.cssText = 'color: var(--error); font-size: 0.85rem; text-align: center; margin-top: 8px; font-weight: 500;'; document.querySelector('.date-triggers').after(el); }
+    if (!el) { el = document.createElement('div'); el.id = 'date-error'; el.style.cssText = 'color: var(--error); font-size: 0.85rem; text-align: center; margin-top: 8px; font-weight: 500;'; document.getElementById('booking-widget').appendChild(el); }
     el.textContent = msg;
   }
   function clearDateError() {
@@ -572,6 +641,37 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   // Calendar-based event handling
   document.getElementById('btn-checkin').addEventListener('click', () => openCalendar('checkin'));
   document.getElementById('btn-checkout').addEventListener('click', () => openCalendar('checkout'));
+  document.getElementById('calendar-overlay').addEventListener('click', (event) => {
+    if (event.target.id === 'calendar-overlay') closeCalendar();
+  });
+  document.querySelector('.calendar-modal').addEventListener('click', (event) => event.stopPropagation());
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeCalendar();
+  });
+  const summaryBar = document.getElementById('booking-summary-bar');
+  const heroShell = document.querySelector('.hero-shell');
+  function setSummaryVisibility(isVisible) {
+    if (!summaryBar) return;
+    summaryBar.classList.toggle('is-visible', isVisible);
+    summaryBar.style.display = isVisible ? 'block' : 'none';
+    summaryBar.style.visibility = isVisible ? 'visible' : 'hidden';
+  }
+  function updateSummaryVisibility() {
+    if (!heroShell) return;
+    setSummaryVisibility(heroShell.getBoundingClientRect().bottom <= 0);
+  }
+  if (summaryBar && heroShell && 'IntersectionObserver' in window) {
+    const heroObserver = new IntersectionObserver(([entry]) => {
+      setSummaryVisibility(!entry.isIntersecting && entry.boundingClientRect.bottom <= 0);
+    }, { threshold: 0 });
+    heroObserver.observe(heroShell);
+    window.addEventListener('scroll', updateSummaryVisibility, { passive: true });
+    window.addEventListener('resize', updateSummaryVisibility, { passive: true });
+    updateSummaryVisibility();
+  } else {
+    window.addEventListener('scroll', updateSummaryVisibility, { passive: true });
+    updateSummaryVisibility();
+  }
 
   // Parameterized landing entry point (?package= support from addendum)
   (function handlePackageParam() {
@@ -608,6 +708,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     calendarMode = mode;
     document.getElementById('calendar-overlay').style.display = 'flex';
     document.getElementById('cal-selection-label').textContent = mode === 'checkin' ? 'Select check-in' : 'Select check-out';
+    document.getElementById('calendar-select').disabled = !(selectedCheckin && selectedCheckout);
     currentCalendarMonth = new Date();
     renderCalendarGrid();
   }
@@ -617,6 +718,15 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   function changeMonth(dir) {
     currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + dir);
     renderCalendarGrid();
+  }
+  function confirmCalendarSelection() {
+    if (!selectedCheckin || !selectedCheckout) return;
+    closeCalendar();
+    updateBookingUI();
+    window.setTimeout(() => {
+      const packagesSection = document.querySelector('.packages-section');
+      if (packagesSection) packagesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
   }
   function renderCalendarGrid() {
     const grid = document.getElementById('calendar-grid');
@@ -634,7 +744,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     for (let d = 1; d <= daysInMonth; d++) {
       const btn = document.createElement('button');
       btn.textContent = d;
-      btn.style.cssText = 'border:none;background:transparent;padding:8px;border-radius:50%;cursor:pointer;font-family:inherit;font-size:0.9rem;color:var(--text-primary);transition:all 0.15s;';
+      btn.className = 'calendar-day';
       const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
       const dateObj = new Date(dateStr + 'T00:00:00');
       if (dateObj < today) {
@@ -642,11 +752,16 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
       } else {
         const isCheckin = selectedCheckin === dateStr;
         const isCheckout = selectedCheckout === dateStr;
-        if (isCheckin || isCheckout) {
-          btn.style.background = 'var(--accent)'; btn.style.color = '#fff'; btn.style.fontWeight = '600'; btn.style.boxShadow = '0 2px 8px rgba(184,92,56,0.3)';
+        const dateValue = dateObj.getTime();
+        const checkinValue = selectedCheckin ? new Date(selectedCheckin + 'T00:00:00').getTime() : 0;
+        const checkoutValue = selectedCheckout ? new Date(selectedCheckout + 'T00:00:00').getTime() : 0;
+        if (isCheckin) {
+          btn.classList.add('is-range-start');
+        } else if (isCheckout) {
+          btn.classList.add('is-range-end');
+        } else if (checkinValue && checkoutValue && dateValue > checkinValue && dateValue < checkoutValue) {
+          btn.classList.add('is-range');
         } else {
-          btn.onmouseover = () => { btn.style.background = 'var(--accent-light)'; };
-          btn.onmouseout = () => { btn.style.background = 'transparent'; };
           btn.onclick = () => selectCalendarDate(dateStr);
         }
       }
@@ -667,17 +782,18 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
         document.getElementById('checkin-display').textContent = formatDisplayDate(dateStr);
       } else {
         selectedCheckout = dateStr; calendarMode = 'checkin';
-        document.getElementById('cal-selection-label').textContent = 'Select check-in';
+        document.getElementById('cal-selection-label').textContent = 'Dates selected';
         document.getElementById('checkout-display').textContent = formatDisplayDate(dateStr);
-        closeCalendar(); updateBookingUI();
+        document.getElementById('calendar-select').disabled = false;
       }
     }
+    document.getElementById('calendar-select').disabled = !(selectedCheckin && selectedCheckout);
     renderCalendarGrid();
   }
   function formatDisplayDate(dateStr) {
     const d = new Date(dateStr + 'T00:00:00');
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return d.getDate() + ' ' + months[d.getMonth()];
+    return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
   }
   function clearSelection() {
     selectedCheckin = ''; selectedCheckout = '';
@@ -685,14 +801,23 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     document.getElementById('checkout-display').textContent = 'Check-out';
     document.getElementById('night-count-row').textContent = '';
     document.getElementById('cal-selection-label').textContent = 'Select check-in';
+    document.getElementById('calendar-select').disabled = true;
     calendarMode = 'checkin'; renderCalendarGrid(); updateBookingUI();
   }
   function updateBookingUI() {
     const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
     const nightRow = document.getElementById('night-count-row');
     nightRow.textContent = nights > 0 ? nights + ' night' + (nights > 1 ? 's' : '') + ' selected' : '';
+    updateBookingSummary(nights);
     renderPackages();
     renderRooms();
+  }
+  function updateBookingSummary(nights) {
+    document.getElementById('summary-checkin').textContent = selectedCheckin ? formatDisplayDate(selectedCheckin) : 'Select date';
+    document.getElementById('summary-checkout').textContent = selectedCheckout ? formatDisplayDate(selectedCheckout) : 'Select date';
+    document.getElementById('summary-nights').textContent = nights + ' night' + (nights === 1 ? '' : 's');
+    document.getElementById('summary-adults').textContent = guests.adults + ' Adult' + (guests.adults === 1 ? '' : 's');
+    document.getElementById('summary-children').textContent = guests.children + ' Children';
   }
   function updateGuests(type, delta) {
     const val = guests[type] + delta;
@@ -700,6 +825,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     if (type === 'children' && val >= 0 && val <= 5) guests[type] = val;
     document.getElementById('guest-adults-display').textContent = guests.adults;
     document.getElementById('guest-children-display').textContent = guests.children;
+    updateBookingSummary(selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0);
     renderRooms();
   }
   function renderRooms() {
@@ -840,6 +966,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   renderRooms();
   renderActivities();
   renderAddOns();
+  updateBookingUI();
   updateCartUI();
   startRoomCarousel();
   startActCarousel();
