@@ -32,6 +32,11 @@ export const siteInfo = {
   siteName: "Sapana Village",
   subtitle: "A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.",
   checkoutOrigin: "https://book.krishna-sharma.com.np",
+  logoUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789362870/e6d45606-15b6-402f-97d3-dbacdb266e8f-Photoroom_bc6vgy.png",
+  backgroundUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp",
+  heroTitle: "Sapana Village",
+  heroSubtitle: "A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.",
+  siteTitle: "Sapana Village — Book",
 };
 
 export const packages = [

@@ -2,7 +2,7 @@
 
 import * as cart from "../client/cart.js";
 import * as utils from "../client/utils.js";
-import { theme, injectThemeCSS } from "../client/theme.js";
+import { injectThemeCSS } from "../client/theme.js";
 
 // DOM elements cache
 const elements = {};
@@ -13,6 +13,10 @@ let currentSkus = [];
 
 // Initialize the page
 export async function renderPage(url) {
+  // The Worker serves this page as an inline template; keep all checkout CSS
+  // injected from JavaScript rather than relying on a static stylesheet.
+  applyDesignTokens();
+
   // Read URL parameters first
   const params = new URLSearchParams(url.search);
   currentSkus = (params.get("items") || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -42,6 +46,9 @@ export async function renderPage(url) {
 
   // Cache DOM elements after HTML insertion
   cacheDomElements();
+
+  // Render cart items only after the element cache has been populated.
+  renderCartItems(quote.items);
 
   // Set up event listeners
   setupEventListeners();
@@ -288,12 +295,6 @@ function renderPageContent(skus, quote) {
       </div>
     </div>
   `;
-
-  // Apply design tokens
-  applyDesignTokens();
-
-  // Render cart items
-  renderCartItems(quote.items);
 
   // Set up validation for form fields
   setupValidation();
@@ -599,6 +600,8 @@ async function mountCardFields(captureContext) {
     const { ctx } = decodeJwt(captureContext);
     const { clientLibrary, clientLibraryIntegrity } = ctx[0].data;
 
+    await loadScript(clientLibrary, clientLibraryIntegrity);
+
     // Note: In production, the library would be loaded once and reused
     const flex = new Flex(captureContext);
     microformInstance = flex.microform('card');
@@ -618,6 +621,23 @@ async function mountCardFields(captureContext) {
     console.error("Failed to mount card fields:", error);
     throw error;
   }
+}
+
+function loadScript(src, integrity) {
+  return new Promise((resolve, reject) => {
+    if (window.Flex) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.integrity = integrity || "";
+    script.crossOrigin = "anonymous";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("Failed to load the payment field library"));
+    document.head.appendChild(script);
+  });
 }
 
 function initPaymentFlow(captureContext, bookingId, amount) {
@@ -755,7 +775,10 @@ function showError(message) {
 }
 
 function applyDesignTokens() {
+  if (document.head.querySelector('style[data-checkout-design-tokens="true"]')) return;
+
   const style = document.createElement("style");
+  style.setAttribute("data-checkout-design-tokens", "true");
   style.textContent = `
     ${injectThemeCSS()}
     .checkout-container {

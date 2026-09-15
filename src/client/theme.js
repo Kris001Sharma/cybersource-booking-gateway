@@ -25,6 +25,9 @@ export const theme = {
   "glass-shadow": "0 8px 32px rgba(44,36,31,0.08)",
   "shadow-card": "0 2px 12px rgba(44,36,31,0.06)",
   "shadow-elevated": "0 8px 30px rgba(44,36,31,0.10)",
+  // Modal overlay variables
+  "modal-backdrop": "rgba(44,36,31,0.35)",
+  "modal-z-index": "200",
 };
 
 export function injectThemeCSS() {

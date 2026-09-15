@@ -4,7 +4,6 @@ import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
 import * as paylink from "./methods/hosted/paylink.js";
 import * as landing from "./pages/landing.js";
-import * as checkout from "./pages/checkout.js";
 import * as confirmation from "./pages/confirmation.js";
 import { getBooking } from "./bookings.js";
 
@@ -44,6 +43,9 @@ export default {
     // ---- Generic entry point: /checkout?items=...&method=paylink|microform|unified ----
     if (p === "/checkout") {
       const method = url.searchParams.get("method") || DEFAULT_METHOD;
+      // checkout.js is a browser-side controller and must not run in the
+      // Worker, where document/window are unavailable. Use the server-safe
+      // inline Microform page until the controller is embedded in HTML.
       if (method === "microform") return microform.renderCheckoutPage(url);
       if (method === "unified") return unifiedCheckout.renderCheckoutPage(url);
       return paylink.renderCheckoutPage(url);

@@ -19,9 +19,9 @@ export class PaymentFlow {
     // Store options
     this.currentBookingId = options.bookingId;
     this.microformInstance = options.microformInstance;
-    this.progressElement = document.getElementById("payment-progress");
-    this.stepupContainer = document.getElementById("payment-stepup");
-    this.failedContainer = document.getElementById("payment-failed");
+    this.progressElement = document.getElementById("checkout-progress-modal");
+    this.stepupContainer = document.getElementById("checkout-stepup-modal");
+    this.failedContainer = document.getElementById("checkout-failed-modal");
 
     // Store original options for retry
     this.originalOptions = { ...options };
@@ -133,11 +133,11 @@ export class PaymentFlow {
 
   async performDDC(accessToken, ddcUrl) {
     // Hidden DDC form and iframe
-    const ddcForm = document.getElementById("payment-stepup-form");
-    const ddcIframe = document.getElementById("payment-stepup-iframe");
+    const ddcForm = document.getElementById("stepup-form");
+    const ddcIframe = document.getElementById("stepup-iframe");
 
     ddcForm.action = ddcUrl;
-    document.getElementById("payment-stepup-jwt").value = accessToken;
+    document.getElementById("stepup-jwt").value = accessToken;
 
     // Listen for DDC completion
     await this.waitForDDCCompletion();
@@ -173,7 +173,7 @@ export class PaymentFlow {
       }
 
       window.addEventListener("message", onMessage);
-      document.getElementById("payment-stepup-form").submit();
+      document.getElementById("stepup-form").submit();
     });
   }
 
@@ -200,28 +200,18 @@ export class PaymentFlow {
 
   async handleStepUp(enrollment) {
     const { stepUpUrl, accessToken, token } = enrollment.consumerAuthenticationInformation;
-    const stepupContainer = document.getElementById("payment-stepup");
 
-    // Show step-up container
-    stepupContainer.style.display = "block";
-    stepupContainer.classList.add("active");
+    // Store step-up data for modal
+    this.stepUpUrl = stepUpUrl;
+    this.accessToken = accessToken || token;
 
-    // Update progress
-    this.updateProgress("Verifying with your bank...");
-
-    // Submit step-up form
-    const stepUpForm = document.getElementById("stepup-form");
-    stepUpForm.action = stepUpUrl;
-    document.getElementById("stepup-jwt").value = accessToken || token;
+    // Set state to waiting-on-you to trigger modal show
+    this.setState("waiting-on-you", {
+      message: "Your bank needs to verify this payment"
+    });
 
     // Wait for step-up completion
-    const stepUpData = await this.waitForStepUpCompletion();
-
-    // Hide step-up container
-    stepupContainer.style.display = "none";
-    stepupContainer.classList.remove("active");
-
-    return stepUpData;
+    return await this.waitForStepUpCompletion();
   }
 
   async waitForStepUpCompletion() {
@@ -247,7 +237,13 @@ export class PaymentFlow {
       }
 
       window.addEventListener("message", onMessage);
-      document.getElementById("stepup-form").submit();
+      // Submit the step-up form after a brief delay to allow modal to render
+      setTimeout(() => {
+        const stepupForm = document.getElementById("stepup-form");
+        if (stepupForm) {
+          stepupForm.submit();
+        }
+      }, 100);
     });
   }
 
@@ -319,91 +315,152 @@ export class PaymentFlow {
   }
 
   updateUI(state, data) {
-    // Update progress bar state
-    this.progressElement.className = `progress-bar ${state}`;
-    this.progressElement.dataset.state = state;
+    // Update modal state
+    const modalOverlay = document.getElementById("checkout-modal-overlay");
+    const progressModal = document.getElementById("checkout-progress-modal");
+    const stepupModal = document.getElementById("checkout-stepup-modal");
+    const failedModal = document.getElementById("checkout-failed-modal");
 
-    // Update visual indicators
+    // Show/hide appropriate modal based on state
     if (state === "processing") {
-      this.progressElement.style.display = "block";
+      modalOverlay.classList.remove("hidden");
+      modalOverlay.classList.add("active");
+      progressModal.classList.remove("hidden");
+      progressModal.classList.add("active");
+      stepupModal.classList.add("hidden");
+      failedModal.classList.add("hidden");
+      this.updateProgress(data.message || "Processing...");
+    } else if (state === "waiting-on-you") {
+      modalOverlay.classList.remove("hidden");
+      modalOverlay.classList.add("active");
+      progressModal.classList.add("hidden");
+      stepupModal.classList.remove("hidden");
+      stepupModal.classList.add("active");
+      failedModal.classList.add("hidden");
+      this.showStepUpContainer(data.message || "Your bank needs to verify this payment");
+    } else if (state === "failed") {
+      modalOverlay.classList.remove("hidden");
+      modalOverlay.classList.add("active");
+      progressModal.classList.add("hidden");
+      stepupModal.classList.add("hidden");
+      failedModal.classList.remove("hidden");
+      failedModal.classList.add("active");
+      this.showFailedState(data.message, data.error);
+    } else if (state === "success") {
+      // Success happens via redirect, no modal shown
+      this.redirectToConfirmation(this.currentBookingId);
+    } else {
+      // idle state - hide all modals
+      modalOverlay.classList.add("hidden");
+      modalOverlay.classList.remove("active");
+      progressModal.classList.add("hidden");
+      progressModal.classList.remove("active");
+      stepupModal.classList.add("hidden");
+      stepupModal.classList.remove("active");
+      failedModal.classList.add("hidden");
+      failedModal.classList.remove("active");
     }
   }
 
   updateProgress(message) {
     this.currentMessage = message;
-    this.progressElement.textContent = message;
+    const progressText = document.getElementById("progress-text");
+    const progressBarFill = document.getElementById("progress-bar-fill");
+    if (progressText) progressText.textContent = message;
+    // Simple progress animation
+    if (progressBarFill) {
+      progressBarFill.style.width = "60%"; // Simple indicator
+    }
     console.log(`[PaymentFlow] ${message}`);
   }
 
   showStepUpContainer(message) {
-    this.stepupContainer.style.display = "block";
-    this.stepupContainer.classList.add("active");
+    const stepupContainer = document.getElementById("payment-stepup");
 
-    // Update message if provided
-    if (message) {
-      const stepUpMessage = this.stepupContainer.querySelector("p");
-      if (stepUpMessage) {
-        stepUpMessage.textContent = message;
-      }
+    // Show step-up container
+    stepupContainer.style.display = "block";
+    stepupContainer.classList.add("active");
+
+    // Update progress
+    this.updateProgress("Verifying with your bank...");
+
+    // Submit step-up form
+    const stepUpForm = document.getElementById("stepup-form");
+    if (this.stepUpUrl) {
+      stepUpForm.action = this.stepUpUrl;
+      document.getElementById("stepup-jwt").value = this.accessToken || this.token;
+      // Wait for step-up completion
+      this.waitForStepUpCompletion();
     }
   }
 
   showFailedState(message, error) {
-    this.failedContainer.style.display = "block";
-    this.failedContainer.classList.add("active");
+    const failedModal = document.getElementById("checkout-failed-modal");
+    const errorText = failedModal?.querySelector("p.error-text");
+    const errorDetails = failedModal?.querySelector("p.error-details");
+    const retryBtn = failedModal?.querySelector(".retry-btn");
+    const editBtn = failedModal?.querySelector(".edit-btn");
 
-    // Update error message
-    const errorMessage = this.failedContainer.querySelector("p.error-text");
-    const errorDetails = this.failedContainer.querySelector("p.error-details");
+    if (failedModal) {
+      failedModal.classList.remove("hidden");
+      failedModal.classList.add("active");
 
-    if (errorMessage) {
-      errorMessage.textContent = message || "Payment failed";
-    }
+      // Update error message
+      if (errorText) {
+        errorText.textContent = message || "Payment failed";
+      }
 
-    if (errorDetails && error) {
-      errorDetails.textContent = `Error: ${error}`;
-      errorDetails.style.display = "block";
-    }
+      if (errorDetails && error) {
+        errorDetails.textContent = `Error: ${error}`;
+        errorDetails.style.display = "block";
+      }
 
-    // Set up retry button
-    const retryButton = this.failedContainer.querySelector(".retry-btn");
-    if (retryButton) {
-      retryButton.onclick = () => {
-        this.failedContainer.style.display = "none";
-        this.failedContainer.classList.remove("active");
-        // Re-initialize payment flow
-        this.start({
-          bookingId: this.currentBookingId,
-          microformInstance: this.microformInstance,
-          amount: this.originalOptions.amount || "0",
-          currency: this.originalOptions.currency || "USD",
-          billTo: this.originalOptions.billTo || {},
-          checkin: this.originalOptions.checkin,
-          checkout: this.originalOptions.checkout
-        });
-      };
-    }
+      // Set up retry button
+      if (retryBtn) {
+        retryBtn.onclick = () => {
+          failedModal.classList.add("hidden");
+          failedModal.classList.remove("active");
+          // Re-initialize payment flow
+          this.start({
+            bookingId: this.currentBookingId,
+            microformInstance: this.microformInstance,
+            amount: this.originalOptions.amount || "0",
+            currency: this.originalOptions.currency || "USD",
+            billTo: this.originalOptions.billTo || {},
+            checkin: this.originalOptions.checkin,
+            checkout: this.originalOptions.checkout
+          });
+        };
+      }
 
-    // Set up edit button
-    const editButton = this.failedContainer.querySelector(".edit-btn");
-    if (editButton) {
-      editButton.onclick = () => {
-        this.failedContainer.style.display = "none";
-        this.failedContainer.classList.remove("active");
-        // Return to payment details (show Section B)
-        const sectionB = document.getElementById("section-b");
-        if (sectionB) {
-          sectionB.classList.remove("hidden");
-        }
-      };
+      // Set up edit button
+      if (editBtn) {
+        editBtn.onclick = () => {
+          failedModal.classList.add("hidden");
+          failedModal.classList.remove("active");
+          // Return to payment details (show Section B)
+          const sectionB = document.getElementById("section-b");
+          if (sectionB) {
+            sectionB.classList.remove("hidden");
+          }
+        };
+      }
     }
   }
 
   hideAllErrorStates() {
-    this.stepupContainer.style.display = "none";
-    this.stepupContainer.classList.remove("active");
-    this.failedContainer.style.display = "none";
-    this.failedContainer.classList.remove("active");
+    const stepupModal = document.getElementById("checkout-stepup-modal");
+    const failedModal = document.getElementById("checkout-failed-modal");
+
+    if (stepupModal) {
+      stepupModal.classList.add("hidden");
+      stepupModal.classList.remove("active");
+    }
+
+    if (failedModal) {
+      failedModal.classList.add("hidden");
+      failedModal.classList.remove("active");
+    }
   }
 
   redirectToConfirmation(bookingId, checkin, checkout) {

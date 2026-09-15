@@ -11,6 +11,7 @@ import { createBooking } from "../../bookings.js";
 import { cybersourceRequest } from "../../cybersource.js";
 import { setupAuthentication, checkEnrollment as checkPayerEnrollment, validateAuthentication } from "./payer-auth.js";
 import { chargeCard } from "./shared-charge.js";
+import { injectThemeCSS } from "../../client/theme.js";
 
 export async function createSession(request, env) {
   const { skus, payAmount, guest } = await request.json();
@@ -103,32 +104,91 @@ export async function stepUpCallback(request) {
 
 export function renderCheckoutPage(url) {
   const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Checkout — Microform</title></head>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Checkout — Microform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>${injectThemeCSS()}
+  :root { --ink: #2c241f; --muted: #75685e; --line: #e6ddd3; --panel: rgba(255,255,255,.72); }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body { margin: 0; background: var(--cream); color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; }
+  body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 12% 0%, rgba(184,92,56,.12), transparent 34%), radial-gradient(circle at 90% 90%, rgba(232,226,217,.7), transparent 35%); }
+  button, input, select, textarea { font: inherit; }
+  button { cursor: pointer; }
+  .checkout-page { position: relative; max-width: 1160px; margin: 0 auto; padding: 34px 24px 64px; }
+  .checkout-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 34px; }
+  .brand { color: var(--accent); font-family: "Playfair Display", Georgia, serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; }
+  .secure-note { color: var(--text-muted); font-size: .8rem; display: flex; align-items: center; gap: 6px; }
+  .secure-note span { color: var(--success); font-size: 1rem; }
+  .checkout-intro { margin-bottom: 28px; }
+  .eyebrow { color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 9px; }
+  .checkout-intro h1 { font-family: "Playfair Display", Georgia, serif; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; margin: 0 0 10px; letter-spacing: -.03em; }
+  .checkout-intro p { color: var(--muted); margin: 0; max-width: 620px; line-height: 1.6; }
+  .checkout-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 22px; align-items: start; }
+  .checkout-card { background: var(--panel); border: 1px solid rgba(255,255,255,.85); border-radius: 22px; box-shadow: 0 16px 46px rgba(44,36,31,.09); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); padding: clamp(20px, 3vw, 32px); }
+  .checkout-card h2 { font-family: "Playfair Display", Georgia, serif; font-size: 1.55rem; margin: 0 0 22px; }
+  .checkout-card h3 { color: var(--ink); font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; margin: 27px 0 14px; }
+  .checkout-card h3:first-child { margin-top: 0; }
+  .cart-list { display: grid; gap: 9px; }
+  .cart-line { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 14px; background: rgba(255,255,255,.68); border: 1px solid rgba(230,221,211,.8); border-radius: 12px; }
+  .cart-line strong { display: block; font-size: .92rem; font-weight: 600; }
+  .cart-line small { color: var(--muted); font-size: .78rem; }
+  .cart-line .remove-item { border: 0; background: transparent; color: var(--text-muted); font-size: .75rem; padding: 5px; }
+  .cart-line .remove-item:hover { color: var(--error); }
+  .cart-total { display: flex; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 15px; padding-top: 16px; font-size: 1.08rem; font-weight: 700; }
+  .cart-total strong, #cart-total { color: var(--accent); font-size: 1.3rem; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; color: var(--muted); font-size: .78rem; font-weight: 600; margin: 0 0 7px; }
+  .form-group input, .form-group textarea, .form-group select, .checkout-card input:not([type="radio"]), .checkout-card textarea, .checkout-card select { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.78); color: var(--ink); padding: 11px 12px; outline: 0; transition: border-color .2s, box-shadow .2s; }
+  .card-input { min-height: 44px; border: 1px solid var(--line) !important; border-radius: 10px !important; background: rgba(255,255,255,.78); padding: 10px 12px; }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus, .checkout-card input:not([type="radio"]):focus, .checkout-card textarea:focus, .checkout-card select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184,92,56,.12); }
+  .payment-choice { display: grid; gap: 9px; }
+  .payment-choice label { display: flex; align-items: center; gap: 9px; padding: 12px 14px; background: rgba(255,255,255,.58); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: .86rem; }
+  .payment-choice input { accent-color: var(--accent); }
+  .primary-action { width: 100%; border: 0; border-radius: 11px; background: var(--accent); color: #fff; padding: 14px 18px; font-weight: 700; box-shadow: 0 8px 18px rgba(184,92,56,.22); transition: background .2s, transform .2s; }
+  .primary-action:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .summary-card { position: sticky; top: 20px; }
+  .summary-card h2 { margin-bottom: 16px; }
+  .summary-copy { color: var(--muted); font-size: .88rem; line-height: 1.55; margin: 0 0 20px; }
+  .summary-rule { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+  .trust-item { display: flex; gap: 10px; color: var(--muted); font-size: .8rem; line-height: 1.45; margin: 13px 0; }
+  .trust-item b { color: var(--success); }
+  #deposit-options { margin-top: 10px; }
+  #msg { color: var(--error); font-size: .85rem; margin-top: 12px; }
+  #stepup-section { margin-top: 20px; }
+  @media (max-width: 760px) { .checkout-page { padding: 22px 15px 42px; } .checkout-header { margin-bottom: 25px; } .checkout-layout { grid-template-columns: 1fr; } .summary-card { position: static; } .form-grid { grid-template-columns: 1fr; gap: 0; } }
+</style></head>
 <!-- payment-method: microform -->
-<body>
-  <h2>Your booking (Microform)</h2>
-  <div id="cart"></div>
-  <div id="deposit-options" style="display:none">
-    <label><input type="radio" name="pay" value="deposit" checked> Pay deposit: $<span id="dep-amt"></span></label><br>
-    <label><input type="radio" name="pay" value="full"> Pay in full: $<span id="full-amt"></span></label>
-  </div>
+<body><main class="checkout-page">
+  <header class="checkout-header"><div class="brand">Krishna Sharma</div><div class="secure-note"><span>●</span> Secure checkout</div></header>
+  <section class="checkout-intro"><p class="eyebrow">Your reservation</p><h1>Complete your booking</h1><p>Review your selection and enter your details below. Your payment is processed securely.</p></section>
+  <div class="checkout-layout"><section class="checkout-card">
+  <h2>Booking details</h2>
+  <h3>Your selection</h3><div id="cart" class="cart-list">Loading your selection...</div>
+  <div id="deposit-options" style="display:none"><span id="dep-amt"></span><span id="full-amt"></span></div>
 
-  <h3>Billing details</h3>
-  <input id="bill-first" placeholder="First name"><br>
-  <input id="bill-last" placeholder="Last name"><br>
-  <input id="bill-email" placeholder="Email" type="email"><br>
-  <input id="bill-address" placeholder="Address line 1"><br>
-  <input id="bill-city" placeholder="City"><br>
-  <input id="bill-state" placeholder="State/Province (e.g. CA)"><br>
-  <input id="bill-zip" placeholder="Postal code"><br>
-  <input id="bill-country" placeholder="Country code (e.g. US)" value="US"><br>
-  <select id="currency" style="margin-top:4px;width:100%;box-sizing:border-box;">
+  <h3>Guest information</h3><div class="form-grid">
+  <div class="form-group"><label for="bill-first">First name</label><input id="bill-first" placeholder="First name"></div>
+  <div class="form-group"><label for="bill-last">Last name</label><input id="bill-last" placeholder="Last name"></div></div>
+  <div class="form-group"><label for="bill-email">Email address</label><input id="bill-email" placeholder="you@example.com" type="email"></div>
+  <div class="form-grid"><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
+  <div class="form-group"><label for="bill-city">City</label><input id="bill-city" placeholder="City"></div></div>
+  <div class="form-grid"><div class="form-group"><label for="bill-state">State / province</label><input id="bill-state" placeholder="State or province"></div>
+  <div class="form-group"><label for="bill-zip">Postal code</label><input id="bill-zip" placeholder="Postal code"></div></div>
+  <div class="form-grid"><div class="form-group"><label for="bill-country">Country code</label><input id="bill-country" placeholder="e.g. US" value="US"></div>
+  <div class="form-group"><label for="currency">Currency</label><select id="currency">
     <option value="USD" selected>USD</option>
     <option value="NPR">NPR</option>
-  </select>
+  </select></div></div>
 
+  <h3>Payment method</h3><div class="payment-choice">
+    <label><input type="radio" name="pay" value="deposit" checked> <span>Pay deposit: $<span id="dep-amt-copy"></span></span></label>
+    <label><input type="radio" name="pay" value="full"> <span>Pay in full: $<span id="full-amt-copy"></span></span></label>
+  </div>
   <h3>Card details</h3>
-  <div id="card-number" style="height:40px;border:1px solid #ccc;margin:8px 0"></div>
+  <div id="card-number" class="card-input"></div>
   <div style="display:flex;gap:8px;margin:8px 0">
     <select id="exp-month">
       <option value="01">01</option><option value="02">02</option><option value="03">03</option>
@@ -140,9 +200,9 @@ export function renderCheckoutPage(url) {
       <option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option>
       <option value="2029">2029</option><option value="2030">2030</option>
     </select>
-    <div id="security-code" style="height:40px;width:80px;border:1px solid #ccc"></div>
+    <div id="security-code" class="card-input security-input"></div>
   </div>
-  <button id="pay-btn" disabled>Pay</button>
+  <button id="pay-btn" class="primary-action" disabled>Pay securely</button>
   <div id="msg"></div>
 
   <!-- Step-Up Challenge container (visible when challenge required) -->
@@ -153,8 +213,8 @@ export function renderCheckoutPage(url) {
     <form id="microform-stepup-form" target="microform-stepup-iframe" method="POST" style="display:none;">
       <input type="hidden" name="JWT" id="microform-stepup-jwt">
     </form>
-  </div>
-
+  </div></section><aside class="checkout-card summary-card"><h2>Order summary</h2><p class="summary-copy">Your reservation details and payment amount are shown here before you continue.</p><div class="trust-item"><b>✓</b><span>Secure payment processing</span></div><div class="trust-item"><b>✓</b><span>Your details are kept private</span></div><div class="trust-item"><b>✓</b><span>Instant booking confirmation</span></div><hr class="summary-rule"><p class="summary-copy">Questions about your reservation? Contact us before completing payment.</p></aside></div>
+</main>
   <script>
     const params = new URLSearchParams(location.search);
     const items = params.get('items') || '';
@@ -180,10 +240,13 @@ export function renderCheckoutPage(url) {
       .then(r => r.json())
       .then(q => {
         quote = q;
-        document.getElementById('cart').innerHTML =
-          q.items.map(i => i.name + ' - $' + i.price).join('<br>') + '<br><b>Total: $' + q.total + '</b>';
-        document.getElementById('dep-amt').textContent = q.deposits.deposit;
-        document.getElementById('full-amt').textContent = q.deposits.full;
+         document.getElementById('cart').innerHTML =
+           q.items.map(i => '<div class="cart-line"><div><strong>' + i.name + '</strong><small>Reservation item</small></div><span>$' + i.price + '</span></div>').join('') +
+           '<div class="cart-total"><span>Total</span><strong id="cart-total">$' + q.total + '</strong></div>';
+         document.getElementById('dep-amt').textContent = q.deposits.deposit;
+         document.getElementById('full-amt').textContent = q.deposits.full;
+         document.getElementById('dep-amt-copy').textContent = q.deposits.deposit;
+         document.getElementById('full-amt-copy').textContent = q.deposits.full;
         document.getElementById('deposit-options').style.display = 'block';
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },

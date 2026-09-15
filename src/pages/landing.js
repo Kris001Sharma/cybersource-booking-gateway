@@ -1,8 +1,9 @@
 import { injectThemeCSS } from "../client/theme.js";
 import { nightsBetween } from "../client/utils.js";
-import { packages, activities, rooms } from "../config.js";
+import { packages, activities, rooms, siteInfo } from "../config.js";
 
 export function renderPage(url) {
+  const bgUrl = siteInfo && siteInfo.backgroundUrl ? siteInfo.backgroundUrl : '';
   const metaScript = `
     // Embedded config — source of truth is src/config.js (replaced site-config.json)
     // Where to change: edit src/config.js packages, rooms, activities, theme.
@@ -10,6 +11,7 @@ export function renderPage(url) {
     // Accommodation recommendations: shown after packages; rooms filtered by guests.
     // Additional activities: shown when cart has only room SKUs (no package SKUs).
     let PACKAGES = {}; let ACTIVITIES = {}; let ROOMS = {};
+    const nightsBetween = ${nightsBetween.toString()};
     async function loadConfig() {
       // Direct embedded config (no external file fetch needed for deploy)
       PACKAGES = ${JSON.stringify(packages.reduce((m,p)=>{m[p.slug]=p;return m},{}))};
@@ -34,29 +36,92 @@ export function renderPage(url) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
 <style>
 ${injectThemeCSS()}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--cream); color: var(--text-primary); font-family: "Inter", system-ui, sans-serif; }
 h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 .container { max-width: 1120px; margin: 0 auto; padding: 32px 20px; }
-.hero { text-align: center; padding: 60px 0 40px; }
-.hero h1 { font-size: clamp(2.5rem, 6vw, 4rem); letter-spacing: -0.03em; line-height: 1.1; color: var(--text-primary); }
-.hero p { font-size: 1.15rem; color: var(--text-secondary); margin-top: 10px; max-width: 520px; margin-left: auto; margin-right: auto; }
+.hero-shell { width: 100%; padding: 0; overflow: hidden; background: var(--cream); }
+.hero { position: relative; width: 100%; min-height: 620px; text-align: center; padding: 96px 20px 72px; overflow: hidden; background: url('${bgUrl}') center top/cover no-repeat; color: #fff; }
+.hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(44,36,31,0.28), rgba(44,36,31,0.52)); z-index: 0; pointer-events: none; }
+.hero > * { position: relative; z-index: 1; }
+.hero h1 { font-size: clamp(2.8rem, 7vw, 5rem); letter-spacing: -0.03em; line-height: 1.05; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,0.35); }
+.hero p { font-size: 1.2rem; color: rgba(255,255,255,0.92); margin-top: 14px; max-width: 540px; margin-left: auto; margin-right: auto; }
+.booking-widget { width: min(100%, 920px); margin: 30px auto 0; }
+.booking-panel { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr); gap: 16px; align-items: stretch; }
+.booking-card { min-height: 92px; padding: 18px 20px; border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.18); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: 0 10px 36px rgba(44,36,31,0.14); }
+.date-picker { display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0; }
+.date-trigger { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 132px; height: 54px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.34); background: rgba(255,255,255,0.18); color: #fff; font-family: "Inter", system-ui, sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; white-space: nowrap; }
+.date-trigger:hover, .date-trigger:focus-visible { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.62); outline: none; transform: translateY(-1px); box-shadow: 0 5px 18px rgba(44,36,31,0.16); }
+.date-trigger.selected { background: var(--accent); border-color: var(--accent); box-shadow: 0 4px 16px rgba(184,92,56,0.3); }
+.date-trigger.selected:hover, .date-trigger.selected:focus-visible { background: var(--accent-hover); border-color: var(--accent-hover); }
+.date-trigger .material-icons-outlined { font-size: 1.15rem; }
+.date-divider { color: rgba(255,255,255,0.9); font-size: 1.2rem; font-weight: 300; }
+.guest-picker { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.guest-picker h4 { flex: 0 0 auto; margin: 0; color: #fff; font-family: "Inter", system-ui, sans-serif; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; }
+.guest-options { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.guest-control { display: flex; align-items: center; gap: 10px; }
+.guest-control button { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.72); background: transparent; color: #fff; font-size: 1.2rem; font-weight: 300; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; transition: background 0.15s ease, color 0.15s ease; }
+.guest-control button:hover, .guest-control button:focus-visible { background: #fff; color: var(--accent); outline: none; }
+.guest-value { text-align: center; min-width: 48px; }
+.guest-value strong, .guest-value span { display: block; font-family: "Inter", system-ui, sans-serif; }
+.guest-value strong { color: #fff; font-size: 1.05rem; font-weight: 600; }
+.guest-value span { color: rgba(255,255,255,0.78); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; }
+.night-count-row { min-height: 24px; margin-top: 14px; color: #fff; font-size: 0.95rem; font-weight: 600; text-align: center; text-shadow: 0 1px 10px rgba(44,36,31,0.35); }
+.night-count-row.is-preview { color: #ffe2d6; }
+.calendar-overlay { display: none; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; padding: 20px; background: rgba(44,36,31,0.42); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); animation: fadeInUp 0.25s ease; }
+.calendar-modal { position: relative; width: 100%; max-width: 520px; padding: 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--warm-white); box-shadow: 0 24px 60px rgba(44,36,31,0.28); }
+.calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.calendar-status { color: var(--text-primary); font-family: "Inter", system-ui, sans-serif; font-size: 1.05rem; font-weight: 600; }
+.calendar-clear { border: none; background: transparent; color: var(--accent); cursor: pointer; font-family: inherit; font-size: 0.85rem; font-weight: 600; padding: 4px; }
+.calendar-clear:hover, .calendar-clear:focus-visible { color: var(--accent-hover); outline: none; }
+.calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.calendar-nav button { width: 36px; height: 36px; border: none; border-radius: 50%; background: transparent; color: var(--accent); cursor: pointer; font-size: 1.1rem; }
+.calendar-nav button:hover, .calendar-nav button:focus-visible { background: var(--accent-light); outline: none; }
+.calendar-month-label { color: var(--text-primary); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.02em; }
+.calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 6px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.calendar-day { min-width: 0; aspect-ratio: 1; border: none; border-radius: 50%; background: transparent; color: var(--text-primary); cursor: pointer; font-family: inherit; font-size: 0.9rem; transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+.calendar-day:hover:not(:disabled), .calendar-day:focus-visible:not(:disabled) { background: var(--accent-light); outline: none; transform: scale(1.04); }
+.calendar-day:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.42; }
+.calendar-day.is-range { border-radius: 0; background: rgba(184,92,56,0.16); color: var(--accent); }
+.calendar-day.is-range-start, .calendar-day.is-range-end { border-radius: 50%; background: var(--accent); color: #fff; font-weight: 600; box-shadow: 0 2px 8px rgba(184,92,56,0.3); }
+.calendar-day.is-range-start.is-range-end { border-radius: 50%; }
 .date-row { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; margin-top: 28px; margin-bottom: 8px; }
 .date-row input { padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--warm-gray); font-family: inherit; font-size: 0.95rem; background: var(--warm-white); color: var(--text-primary); min-width: 140px; }
 .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-top: 36px; }
-.catalog-grid .card { scroll-snap-align: start; flex: 0 0 300px; }
-.card { background: var(--glass-white); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--glass-shadow); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.catalog-grid .card { scroll-snap-align: start; flex: 0 0 320px; overflow: hidden; position: relative; }
+.card { background: var(--glass-white); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 0; box-shadow: var(--glass-shadow); transition: transform 0.2s ease, box-shadow 0.2s ease; overflow: hidden; position: relative; height: 420px; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(44,36,31,0.12); }
-.card h3 { font-size: 1.35rem; margin-bottom: 6px; }
-.card .theme-tag { display: inline-block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
-.card p { color: var(--text-secondary); font-size: 0.95rem; line-height: 1.55; margin-bottom: 12px; }
-.card .includes { list-style: none; padding: 0; margin: 0 0 14px; }
-.card .includes li { font-size: 0.88rem; color: var(--text-muted); padding: 2px 0; }
-.card .includes li::before { content: "— "; color: var(--accent); }
-.card .price-range { font-weight: 600; color: var(--text-primary); font-size: 1.05rem; margin-bottom: 14px; }
-.card .img-placeholder { height: 120px; border-radius: var(--radius-md); background: linear-gradient(135deg, #e8ddd0 0%, #d6c9b6 100%); display: flex; align-items: center; justify-content: center; font-family: "Playfair Display", serif; font-size: 1.8rem; color: var(--text-secondary); opacity: 0.65; margin-bottom: 16px; }
+.card .card-img-wrap { position: relative; width: 100%; height: 260px; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.card .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Dark overlay over image for white text */
+.card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(44,36,31,0.65) 0%, rgba(44,36,31,0.35) 50%, rgba(44,36,31,0.2) 100%); pointer-events: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+/* Theme bookmark top-left */
+.card .theme-badge { position: absolute; top: 14px; right: 14px; z-index: 3; background: rgba(255,255,255,0.92); color: var(--accent); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 12px; border-radius: 4px; box-shadow: 0 2px 8px rgba(44,36,31,0.12); }
+/* Title over image - white with subtle shadow */
+.card .img-title-overlay { position: absolute; bottom: 14px; left: 14px; right: 14px; z-index: 2; }
+.card .img-title-overlay h3 { font-family: "Playfair Display", Georgia, serif; font-size: 1.35rem; color: #fff; text-shadow: 0 2px 12px rgba(44,36,31,0.6); margin: 0 0 4px; line-height: 1.15; }
+.card .img-title-overlay .nights-info { font-size: 0.85rem; color: rgba(255,255,255,0.92); text-shadow: 0 1px 8px rgba(44,36,31,0.5); }
+/* Default visible text area below image */
+.card .card-body { padding: 14px 18px 10px; background: var(--glass-white); }
+.card .card-body .card-sub { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px; }
+/* Details slide up from bottom inside fixed card */
+.card .card-details { position: absolute; bottom: 0; left: 0; right: 0; padding: 0 18px 16px; display: none; animation: slideUp 0.35s ease both; background: linear-gradient(to top, var(--cream) 0%, rgba(250,247,242,0.75) 100%); border-top: 1px solid rgba(44,36,31,0.08); }
+.card:hover .card-details,
+.card.active .card-details { display: block; }
+/* Price options and buttons */
+.card .price-options { display: flex; gap: 8px; margin-bottom: 10px; }
+.card .price-opt { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.35); text-align: center; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.2s; color: var(--text-primary); }
+.card .price-opt.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.card .btn { width: 100%; border-radius: 8px; padding: 10px; font-size: 0.85rem; text-align: center; }
+/* Animation for slide-up */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .btn { display: inline-block; padding: 10px 20px; border-radius: 8px; background: var(--accent); color: #fff; text-decoration: none; font-size: 0.9rem; font-weight: 600; border: none; cursor: pointer; transition: all 0.25s ease, box-shadow 0.25s ease; }
 .btn:hover { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(184,92,56,0.25); transform: translateY(-2px); }
 .btn-outline { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: 8px; transition: all 0.25s ease, box-shadow 0.25s ease; }
@@ -72,75 +137,81 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
 }
 .card { animation: fadeInUp 0.35s ease both; }
 .empty-state { color: var(--text-muted); font-style: italic; padding: 16px 0; animation: fadeInUp 0.4s ease; }
+@media (max-width: 760px) {
+  .hero { min-height: 0; padding: 72px 16px 56px; }
+  .booking-panel { grid-template-columns: 1fr; }
+  .date-picker { flex-wrap: wrap; }
+  .date-trigger { flex: 1 1 150px; }
+  .guest-picker { justify-content: space-between; }
+  .guest-options { gap: 14px; }
+}
 @media (max-width: 600px) {
   .catalog-grid { grid-template-columns: 1fr; }
   .cart-footer { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .calendar-modal { padding: 18px; }
+  .calendar-day { font-size: 0.82rem; }
 }
 </style>
 </head>
 <body>
-<div class="container">
+<section class="hero-shell">
   <section class="hero" aria-label="Hero">
     <h1>Sapana Village</h1>
     <p>A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.</p>
     <div class="booking-widget" id="booking-widget">
-      <!-- Compact horizontal row: dates + guests -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:24px;">
-        <!-- Dates -->
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
-            <span style="font-size:1.1rem;">&#128197;</span>
-            <span id="checkin-display" style="font-weight:500;">Check-in</span>
+      <div class="booking-panel">
+        <div class="booking-card date-picker-card">
+          <button onclick="openCalendar('checkin')" id="btn-checkin" class="date-trigger" aria-label="Select check-in date">
+            <span class="material-icons-outlined">calendar_today</span>
+            <span id="checkin-display">Check-in</span>
           </button>
-          <span style="color:var(--accent);font-size:1.3rem;font-weight:300;">&#8594;</span>
-          <button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date" style="display:flex;align-items:center;gap:8px;padding:14px 24px;border-radius:var(--radius-lg);border:1.5px solid var(--glass-border);background:rgba(255,255,255,0.7);backdrop-filter:blur(12px);font-family:inherit;font-size:1rem;color:var(--text-primary);cursor:pointer;transition:all 0.2s;min-width:160px;box-shadow:0 2px 12px rgba(44,36,31,0.05);">
-            <span style="font-size:1.1rem;">&#128197;</span>
-            <span id="checkout-display" style="font-weight:500;">Check-out</span>
+          <span class="date-divider" aria-hidden="true">&#8594;</span>
+          <button onclick="openCalendar('checkout')" id="btn-checkout" class="date-trigger" aria-label="Select check-out date">
+            <span class="material-icons-outlined">calendar_today</span>
+            <span id="checkout-display">Check-out</span>
           </button>
         </div>
 
-        <!-- Guests -->
-        <div class="guest-picker" style="padding:16px 20px;background:rgba(255,255,255,0.55);backdrop-filter:blur(12px);border:1px solid var(--glass-border);border-radius:var(--radius-lg);box-shadow:0 4px 20px rgba(44,36,31,0.06);display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
-          <h4 style="font-family:'Playfair Display',Georgia,serif;font-size:1rem;margin:0;color:var(--text-primary);">Guests</h4>
-          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:10px;">
-              <button onclick="updateGuests('adults', -1)" aria-label="Decrease adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
-              <div style="text-align:center;min-width:48px;"><span id="guest-adults-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">2</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Adults</span></div>
-              <button onclick="updateGuests('adults', 1)" aria-label="Increase adults" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
+        <div class="booking-card guest-picker">
+          <h4>Guests</h4>
+          <div class="guest-options">
+            <div class="guest-control">
+              <button onclick="updateGuests('adults', -1)" aria-label="Decrease adults">&#8722;</button>
+              <div class="guest-value"><strong id="guest-adults-display">2</strong><span>Adults</span></div>
+              <button onclick="updateGuests('adults', 1)" aria-label="Increase adults">+</button>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <button onclick="updateGuests('children', -1)" aria-label="Decrease children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">&#8722;</button>
-              <div style="text-align:center;min-width:48px;"><span id="guest-children-display" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);display:block;">0</span><span style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;">Children</span></div>
-              <button onclick="updateGuests('children', 1)" aria-label="Increase children" style="width:36px;height:36px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:1.2rem;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:all 0.15s;">+</button>
+            <div class="guest-control">
+              <button onclick="updateGuests('children', -1)" aria-label="Decrease children">&#8722;</button>
+              <div class="guest-value"><strong id="guest-children-display">0</strong><span>Children</span></div>
+              <button onclick="updateGuests('children', 1)" aria-label="Increase children">+</button>
             </div>
           </div>
         </div>
       </div>
-      <div id="night-count-row" style="text-align:center;margin-top:14px;font-size:0.95rem;color:var(--text-secondary);font-weight:500;min-height:24px;"></div>
+      <div id="night-count-row" aria-live="polite"></div>
 
-      <div id="calendar-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(44,36,31,0.35);backdrop-filter:blur(4px);z-index:100;align-items:center;justify-content:center;padding:20px;animation:fadeInUp 0.25s ease;">
-        <div style="background:var(--warm-white);border-radius:20px;box-shadow:0 24px 60px rgba(44,36,31,0.25);max-width:480px;width:100%;padding:28px;position:relative;border:1px solid var(--glass-border);">
-          <button onclick="closeCalendar()" aria-label="Close calendar" style="position:absolute;top:16px;right:16px;background:transparent;border:none;font-size:1.3rem;color:var(--text-muted);cursor:pointer;padding:4px;line-height:1;">&#215;</button>
-          <h3 style="font-family:'Playfair Display',Georgia,serif;font-size:1.5rem;margin-bottom:4px;color:var(--text-primary);">Select Dates</h3>
-          <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:20px;">Choose your stay. Past dates are unavailable.</p>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <button onclick="changeMonth(-1)" aria-label="Previous month" style="background:transparent;border:none;color:var(--accent);font-size:1.1rem;padding:6px 10px;border-radius:50%;cursor:pointer;">&#10094;</button>
-            <span id="calendar-month-label" style="font-weight:600;font-size:1.05rem;color:var(--text-primary);letter-spacing:0.02em;"></span>
-            <button onclick="changeMonth(1)" aria-label="Next month" style="background:transparent;border:none;color:var(--accent);font-size:1.1rem;padding:6px 10px;border-radius:50%;cursor:pointer;">&#10095;</button>
+      <div id="calendar-overlay" class="calendar-overlay">
+        <div class="calendar-modal">
+          <div class="calendar-header">
+            <span id="cal-selection-label" class="calendar-status" aria-live="polite">Select check-in date</span>
+            <button onclick="clearSelection()" class="calendar-clear">Clear</button>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:0.75rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+          <div class="calendar-nav">
+            <button onclick="changeMonth(-1)" aria-label="Previous month">&#10094;</button>
+            <span id="calendar-month-label"></span>
+            <button onclick="changeMonth(1)" aria-label="Next month">&#10095;</button>
+          </div>
+          <div class="calendar-weekdays">
             <div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div><div>Sun</div>
           </div>
-          <div id="calendar-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;"></div>
-          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--warm-gray);display:flex;align-items:center;justify-content:space-between;">
-            <div style="font-size:0.85rem;color:var(--text-secondary);"><span id="cal-selection-label" style="font-weight:500;color:var(--text-primary);">Select check-in</span></div>
-            <button onclick="clearSelection()" style="background:transparent;border:none;color:var(--accent);font-size:0.85rem;font-weight:600;cursor:pointer;">Clear</button>
-          </div>
+          <div id="calendar-grid" class="calendar-grid"></div>
         </div>
       </div>
 
   </section>
+</div>
 
+<div class="container">
   <!-- Our Signature Packages -->
   <section aria-label="Signature Packages" style="margin-top: 36px;">
     <h2>Our Signature Packages</h2>
@@ -160,13 +231,21 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   <section aria-label="Accommodations" style="margin-top: 60px;">
     <h2>Accommodations</h2>
     <p style="color:var(--text-secondary);margin-bottom:20px;">All room types available at Sapana Village.</p>
-    <div id="rooms-grid" class="catalog-grid"></div>
+    <div style="position:relative;">
+      <button onclick="scrollRooms(-1)" aria-label="Previous rooms" style="position:absolute;left:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10094;</button>
+      <button onclick="scrollRooms(1)" aria-label="Next rooms" style="position:absolute;right:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10095;</button>
+      <div id="rooms-grid" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:24px;padding:4px 4px 12px;scrollbar-width:none;-ms-overflow-style:none;"></div>
+    </div>
   </section>
 
   <section class="activity-section" aria-label="Activities">
     <h2>À la carte activities</h2>
     <p class="subtitle">Add individual experiences — durations shown for display only. The base SKU is used for pricing.</p>
-    <div id="activities-grid" class="catalog-grid"></div>
+    <div style="position:relative;">
+      <button onclick="scrollActivities(-1)" aria-label="Previous activities" style="position:absolute;left:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10094;</button>
+      <button onclick="scrollActivities(1)" aria-label="Next activities" style="position:absolute;right:-16px;top:50%;transform:translateY(-50%);z-index:10;background:var(--glass-white);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:50%;width:40px;height:40px;cursor:pointer;box-shadow:var(--glass-shadow);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:var(--accent);">&#10095;</button>
+      <div id="activities-grid" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:24px;padding:4px 4px 12px;scrollbar-width:none;-ms-overflow-style:none;"></div>
+    </div>
   </section>
 
   <div class="cart-footer" id="cart-footer" style="display:none;">
@@ -187,14 +266,9 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   let calendarMode = 'checkin';
   let selectedCheckin = '';
   let selectedCheckout = '';
+  let hoveredCheckout = '';
   let currentCalendarMonth = new Date();
   let guests = { adults: 2, children: 0 };
-  function nightsBetween(checkin, checkout) {
-    const d1 = new Date(checkin + "T00:00:00");
-    const d2 = new Date(checkout + "T00:00:00");
-    const diff = (d2 - d1) / (1000 * 60 * 60 * 24);
-    return Math.max(0, Math.round(diff));
-  }
   function isPastDate(dateStr) {
     if (!dateStr) return false;
     const today = new Date(); today.setHours(0,0,0,0);
@@ -216,10 +290,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   function renderPackages() {
     const grid = document.getElementById("packages-grid"); grid.innerHTML = "";
     const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
-    const checkinVal = selectedCheckin || '';
-    const checkoutVal = selectedCheckout || '';
     const selectedNights = nights;
-    // Package recommendation: filter by nights <= selectedNights, sort by closest nights (ascending difference)
     const allPkgs = Object.entries(PACKAGES);
     const filteredPackages = selectedNights > 0
       ? allPkgs.filter(([k, pkg]) => pkg.nights <= selectedNights)
@@ -232,43 +303,52 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     for (const [key, pkg] of filteredPackages) {
       const card = document.createElement("div");
       card.className = "card";
+      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
       const includesHtml = pkg.includes.map(i => '<li>' + i + '</li>').join('');
       const imgUrl = pkg.imageUrl || pkg.image || '';
-      const imgDisplay = imgUrl ? '<img src="' + imgUrl + '" alt="' + pkg.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (pkg.theme || pkg.name || 'Image') + '</div>';
-      const nightsText = selectedNights > 0 ? (' — ' + selectedNights + ' night' + (selectedNights > 1 ? 's' : '')) : '';
-      const featuredBadge = pkg.featured ? '<span style="display:inline-block;background:var(--accent);color:#fff;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:var(--radius-sm);margin-bottom:8px;font-weight:600;">Most Popular</span>' : '';
-      card.innerHTML = imgDisplay +
-        '<div>' + featuredBadge + '<div class="theme-tag">' + pkg.theme + '</div></div>' +
-        '<h3>' + pkg.name + '</h3>' +
-        '<p>' + pkg.description + '</p>' +
-        '<ul class="includes">' + includesHtml + '</ul>';
-      const priceDiv = document.createElement('div');
-      priceDiv.style.cssText = 'margin-bottom:14px;';
-        const priceLabel = document.createElement('div');
-        priceLabel.style.cssText = 'font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;';
-        priceLabel.textContent = 'Pricing options';
-        priceDiv.appendChild(priceLabel);
-        const btnWrap = document.createElement('div');
-        btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
-        const fbBtn = document.createElement('button');
-        fbBtn.className = 'btn';
-        fbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:var(--accent);opacity:1;';
-        fbBtn.textContent = 'Full Board ' + pkg.fullBoard;
-        fbBtn.addEventListener('click', () => selectPricing(fbBtn, pkg.fullBoard, pkg.bb));
-        const bbBtn = document.createElement('button');
-        bbBtn.className = 'btn';
-        bbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:rgba(255,255,255,0.35);color:var(--text-muted);border:1px solid var(--glass-border);opacity:0.55;';
-        bbBtn.textContent = 'B&B ' + pkg.bb;
-        bbBtn.addEventListener('click', () => selectPricing(bbBtn, pkg.fullBoard, pkg.bb));
-        btnWrap.appendChild(fbBtn);
-        btnWrap.appendChild(bbBtn);
-        priceDiv.appendChild(btnWrap);
-        card.appendChild(priceDiv);
-      const btn = document.createElement('button');
-      btn.className = 'btn';
-      btn.textContent = 'Add package';
-      btn.addEventListener('click', () => addPackage(key));
-      card.appendChild(btn);
+      const imgSrc = imgUrl ? imgUrl : 'https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp';
+      const nightsInfo = pkg.nights > 0 ? pkg.nights + ' N / ' + (pkg.nights + 1) + ' Days' : '';
+      const bbLabel = pkg.bb ? pkg.bb : (pkg.priceRange ? pkg.priceRange.split('–')[0].trim() : '');
+      card.innerHTML =
+        '<div class="card-img-wrap">' +
+          '<img src="' + imgSrc + '" alt="' + pkg.name + '" class="card-img">' +
+          '<span class="theme-badge">' + pkg.theme + '</span>' +
+          '<div class="img-title-overlay">' +
+            '<h3>' + pkg.name + '</h3>' +
+            '<div class="nights-info">' + nightsInfo + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card-body">' +
+          '<div class="from-price">From ' + bbLabel + ' / person</div>' +
+        '</div>' +
+        '<div class="card-details">' +
+          '<p>' + (pkg.description ? (pkg.description.length > 120 ? pkg.description.substring(0, 120).trim() + '...' : pkg.description) : '') + '</p>' +
+          '<ul class="includes">' + includesHtml + '</ul>' +
+          '<div class="price-options">' +
+            '<button class="price-opt" data-price="' + pkg.bb + '" data-key="' + key + '">B&amp;B<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + bbLabel + '</span></button>' +
+            '<button class="price-opt" data-price="' + pkg.fullBoard + '" data-key="' + key + '">Full Board<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + (pkg.fullBoard || '') + '</span></button>' +
+          '</div>' +
+          '<button class="btn" data-key="' + key + '">Select</button>' +
+        '</div>';
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('button') && !e.target.closest('.price-opt')) {
+          card.classList.toggle('active');
+        }
+      });
+      // Price option selection
+      card.querySelectorAll('.price-opt').forEach(optBtn => {
+        optBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          card.querySelectorAll('.price-opt').forEach(b => b.classList.remove('selected'));
+          optBtn.classList.add('selected');
+        });
+      });
+      // Select package
+      const selectBtn = card.querySelector('.btn');
+      selectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addPackage(key);
+      });
       grid.appendChild(card);
     }
   }
@@ -356,6 +436,20 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   }
   function stopCarousel() { clearInterval(carouselInterval); carouselInterval = null; }
   document.getElementById('packages-grid').addEventListener('mouseenter', stopCarousel);
+  // Room carousel rotation (separate from package carousel for independent rotation)
+  let roomInterval = null;
+  function startRoomCarousel() { if (roomInterval) return; roomInterval = setInterval(() => { const grid = document.getElementById('rooms-grid'); if (!grid) return; grid.scrollBy({ left: 320, behavior: 'smooth' }); }, 6000); }
+  function stopRoomCarousel() { clearInterval(roomInterval); roomInterval = null; }
+  document.getElementById('rooms-grid').addEventListener('mouseenter', stopRoomCarousel);
+  document.getElementById('rooms-grid').addEventListener('mouseleave', startRoomCarousel);
+  document.getElementById('rooms-grid').addEventListener('click', () => { stopRoomCarousel(); setTimeout(startRoomCarousel, 3000); });
+  // Activities carousel rotation
+  let actInterval = null;
+  function startActCarousel() { if (actInterval) return; actInterval = setInterval(() => { const grid = document.getElementById('activities-grid'); if (!grid) return; grid.scrollBy({ left: 300, behavior: 'smooth' }); }, 5000); }
+  function stopActCarousel() { clearInterval(actInterval); actInterval = null; }
+  document.getElementById('activities-grid').addEventListener('mouseenter', stopActCarousel);
+  document.getElementById('activities-grid').addEventListener('mouseleave', startActCarousel);
+  document.getElementById('activities-grid').addEventListener('click', () => { stopActCarousel(); setTimeout(startActCarousel, 3000); });
   document.getElementById('packages-grid').addEventListener('mouseleave', startCarousel);
   document.getElementById('packages-grid').addEventListener('click', () => { stopCarousel(); setTimeout(startCarousel, 3000); });
   // Suppress known external script errors (e.g. browser extension / analytics)
@@ -367,6 +461,21 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
       return true;
     }
   });
+  function selectPricingOption(btn, price, pkgKey) {
+    const parent = btn.closest('.price-options');
+    if (parent) {
+      parent.querySelectorAll('.price-opt').forEach(b => b.classList.remove('selected'));
+    }
+    btn.classList.add('selected');
+    btn.setAttribute('data-selected-price', price);
+    btn.setAttribute('data-pkg-key', pkgKey);
+  }
+  function confirmSelectPackage(pkgKey, btn) {
+    const parent = btn.closest('.card-details');
+    const selectedBtn = parent ? parent.querySelector('.price-opt.selected') : null;
+    const selectedPrice = selectedBtn ? selectedBtn.getAttribute('data-selected-price') : null;
+    addPackage(pkgKey);
+  }
   async function addPackage(key) {
     const pkg = PACKAGES[key];
     if (!pkg) return;
@@ -481,7 +590,7 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
       const cards = document.querySelectorAll('.catalog-grid .card');
       for (const card of cards) {
         const btn = card.querySelector('button');
-        if (btn && btn.textContent.includes('Add package')) {
+        if (btn && (btn.textContent.includes('Select') || btn.textContent.includes('Add package'))) {
           // Check if this card's heading matches our package name
           const heading = card.querySelector('h3');
           if (heading && heading.textContent === pkg.name) {
@@ -596,12 +705,16 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   function renderRooms() {
     const grid = document.getElementById('rooms-grid'); if (!grid) return; grid.innerHTML = '';
     const roomEntries = Object.entries(ROOMS || {});
-    // Show all room types
-    const displayRooms = roomEntries;
+    // Show 2-4 cards: featured first, then first 4 total
+    const featured = roomEntries.filter(([k, r]) => r.featured);
+    const others = roomEntries.filter(([k, r]) => !r.featured);
+    let displayRooms = featured.concat(others).slice(0, 4);
     for (const [key, r] of displayRooms) {
       const card = document.createElement('div');
       card.className = 'card';
-      card.innerHTML = '<h3>' + r.name + '</h3><p>' + (r.description || '') + '</p><div style="margin-bottom:10px;font-size:0.85rem;color:var(--text-muted);">Capacity: ' + r.capacity + '</div><div class="price-range">$' + r.pricePerNight + ' / night</div>';
+      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
+      const shortDesc = (r.description || '').length > 80 ? (r.description || '').substring(0, 80).trim() + '...' : (r.description || '');
+      card.innerHTML = '<h3>' + r.name + '</h3><p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.45;">' + shortDesc + '</p><div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted);">Capacity: ' + r.capacity + ' � $' + r.pricePerNight + ' / night</div>';
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline';
       btn.textContent = 'Add room';
@@ -626,72 +739,100 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
     for (const [key, pkg] of featuredPkgs) {
       const card = document.createElement('div');
       card.className = 'card';
+      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
       const includesHtml = pkg.includes.map(i => '<li>' + i + '</li>').join('');
       const imgUrl = pkg.imageUrl || pkg.image || '';
-      const imgDisplay = imgUrl ? '<img src="' + imgUrl + '" alt="' + pkg.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (pkg.theme || pkg.name || 'Image') + '</div>';
-      const featuredBadge = '<span style="display:inline-block;background:var(--accent);color:#fff;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;padding:3px 8px;border-radius:var(--radius-sm);margin-bottom:8px;font-weight:600;">Most Popular</span>';
-      card.innerHTML = imgDisplay +
-        '<div>' + featuredBadge + '<div class="theme-tag">' + pkg.theme + '</div></div>' +
-        '<h3>' + pkg.name + '</h3>' +
-        '<p>' + pkg.description + '</p>' +
-        '<ul class="includes">' + includesHtml + '</ul>';
-      const priceDiv = document.createElement('div');
-      priceDiv.style.cssText = 'margin-bottom:14px;';
-        const priceLabel = document.createElement('div');
-        priceLabel.style.cssText = 'font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;';
-        priceLabel.textContent = 'Pricing options';
-        priceDiv.appendChild(priceLabel);
-        const btnWrap = document.createElement('div');
-        btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
-        const fbBtn = document.createElement('button');
-        fbBtn.className = 'btn';
-        fbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:var(--accent);opacity:1;';
-        fbBtn.textContent = 'Full Board ' + pkg.fullBoard;
-        fbBtn.addEventListener('click', () => selectPricing(fbBtn, pkg.fullBoard, pkg.bb));
-        const bbBtn = document.createElement('button');
-        bbBtn.className = 'btn';
-        bbBtn.style.cssText = 'width:100%;border-radius:8px;padding:8px 14px;font-size:0.85rem;background:rgba(255,255,255,0.35);color:var(--text-muted);border:1px solid var(--glass-border);opacity:0.55;';
-        bbBtn.textContent = 'B&B ' + pkg.bb;
-        bbBtn.addEventListener('click', () => selectPricing(bbBtn, pkg.fullBoard, pkg.bb));
-        btnWrap.appendChild(fbBtn);
-        btnWrap.appendChild(bbBtn);
-        priceDiv.appendChild(btnWrap);
-        card.appendChild(priceDiv);
-      const btn = document.createElement('button');
-      btn.className = 'btn';
-      btn.textContent = 'Add package';
-      btn.addEventListener('click', () => addPackage(key));
-      card.appendChild(btn);
+      const imgSrc = imgUrl ? imgUrl : 'https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp';
+      const nightsInfo = pkg.nights > 0 ? pkg.nights + ' N / ' + (pkg.nights + 1) + ' Days' : '';
+      const bbLabel = pkg.bb ? pkg.bb : (pkg.priceRange ? pkg.priceRange.split('–')[0].trim() : '');
+      card.innerHTML =
+        '<div class="card-img-wrap">' +
+          '<img src="' + imgSrc + '" alt="' + pkg.name + '" class="card-img">' +
+          '<span class="theme-badge">' + pkg.theme + '</span>' +
+          '<div class="img-title-overlay">' +
+            '<h3>' + pkg.name + '</h3>' +
+            '<div class="nights-info">' + nightsInfo + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card-body">' +
+          '<div class="from-price">From ' + bbLabel + ' / person</div>' +
+        '</div>' +
+        '<div class="card-details">' +
+          '<p>' + (pkg.description ? (pkg.description.length > 120 ? pkg.description.substring(0, 120).trim() + '...' : pkg.description) : '') + '</p>' +
+          '<ul class="includes">' + includesHtml + '</ul>' +
+          '<div class="price-options">' +
+            '<button class="price-opt" data-price="' + pkg.bb + '" data-key="' + key + '">B&amp;B<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + bbLabel + '</span></button>' +
+            '<button class="price-opt" data-price="' + pkg.fullBoard + '" data-key="' + key + '">Full Board<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + (pkg.fullBoard || '') + '</span></button>' +
+          '</div>' +
+          '<button class="btn" data-key="' + key + '">Select</button>' +
+        '</div>';
+      card.addEventListener('click', (e) => {
+        if (!e.target.closest('button') && !e.target.closest('.price-opt')) {
+          card.classList.toggle('active');
+        }
+      });
+      // Price option selection
+      card.querySelectorAll('.price-opt').forEach(optBtn => {
+        optBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          card.querySelectorAll('.price-opt').forEach(b => b.classList.remove('selected'));
+          optBtn.classList.add('selected');
+        });
+      });
+      // Select package
+      const selectBtn = card.querySelector('.btn');
+      selectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        addPackage(key);
+      });
       grid.appendChild(card);
     }
   }
   function renderActivities() {
     const grid = document.getElementById('activities-grid'); if (!grid) return; grid.innerHTML = '';
-    // Dummy a-la-carte activities — always show details
-    const dummyActs = [
-      { name: 'Sunset Yoga Session', desc: 'A guided yoga practice at golden hour with mountain views.', price: '$25', imagePlaceholder: 'Yoga' },
-      { name: 'Private Dinner Experience', desc: 'Chef-curated meal under the stars using local ingredients.', price: '$45', imagePlaceholder: 'Dining' },
-      { name: 'Mountain Photography Walk', desc: 'Guided trail with stops at scenic viewpoints for photography.', price: '$30', imagePlaceholder: 'Trail' },
-    ];
-    for (const act of dummyActs) {
+    const actEntries = Object.entries(ACTIVITIES || {});
+    for (const [key, act] of actEntries) {
       const card = document.createElement('div');
       card.className = 'card';
-      card.innerHTML = '<div class="img-placeholder">' + act.imagePlaceholder + '</div><h3>' + act.name + '</h3><p>' + act.desc + '</p><div style="margin-bottom:12px;font-size:0.9rem;color:var(--text-muted);">' + act.price + ' per person</div>';
+      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
+      const durationsHtml = (act.durations || []).map(v => '<span style="display:inline-block;padding:4px 8px;background:var(--warm-gray);border-radius:var(--radius-sm);margin-right:6px;font-size:0.8rem;font-weight:500;">' + v.label + '</span>').join('');
+      const actImgUrl = act.imageUrl || act.image || '';
+      const imgDisplay = actImgUrl ? '<img src="' + actImgUrl + '" alt="' + act.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (act.name || 'Image') + '</div>';
+      card.innerHTML = imgDisplay + '<h3>' + act.name + '</h3><div style="margin-bottom:10px;">' + durationsHtml + '</div>';
       const btn3 = document.createElement('button');
       btn3.className = 'btn btn-outline';
-      btn3.textContent = 'Add to stay';
-      btn3.addEventListener('click', () => addDummyActivity(act));
+      btn3.textContent = 'Add Activity';
+      btn3.addEventListener('click', () => addActivity(key));
       card.appendChild(btn3);
       grid.appendChild(card);
     }
   }
-  function addDummyActivity(act) {
-    // Dummy add logic — just show visual feedback
-    alert('Added: ' + act.name);
+  function scrollRooms(dir) {
+    const grid = document.getElementById('rooms-grid');
+    const scrollAmount = 340;
+    grid.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
   }
+  function scrollActivities(dir) {
+    const grid = document.getElementById('activities-grid');
+    const scrollAmount = 340;
+    grid.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
+  }
+  let roomCarouselInterval = null;
+  function startRoomCarousel() { if (roomCarouselInterval) return; roomCarouselInterval = setInterval(() => scrollRooms(1), 6000); }
+  function stopRoomCarousel() { clearInterval(roomCarouselInterval); roomCarouselInterval = null; }
+  let actCarouselInterval = null;
+  function startActCarousel() { if (actCarouselInterval) return; actCarouselInterval = setInterval(() => scrollActivities(1), 5000); }
+  function stopActCarousel() { clearInterval(actCarouselInterval); actCarouselInterval = null; }
   function scrollToPackages() {
     document.querySelector('.catalog-grid').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+  // Carousel rotation for rooms (6s) and activities (5s)
+  document.getElementById('rooms-grid').addEventListener('mouseenter', stopRoomCarousel);
+  document.getElementById('rooms-grid').addEventListener('mouseleave', startRoomCarousel);
+  document.getElementById('rooms-grid').addEventListener('click', () => { stopRoomCarousel(); setTimeout(startRoomCarousel, 3000); });
+  document.getElementById('activities-grid').addEventListener('mouseenter', stopActCarousel);
+  document.getElementById('activities-grid').addEventListener('mouseleave', startActCarousel);
+  document.getElementById('activities-grid').addEventListener('click', () => { stopActCarousel(); setTimeout(startActCarousel, 3000); });
   // Initialize calendar
   renderCalendarGrid();
   renderSignaturePackages();
@@ -700,6 +841,9 @@ h1, h2, h3 { font-family: "Playfair Display", Georgia, serif; margin: 0; }
   renderActivities();
   renderAddOns();
   updateCartUI();
+  startRoomCarousel();
+  startActCarousel();
+  startCarousel();
 </script>
 </body>
 </html>`;
