@@ -54,7 +54,13 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
   let serverAmount = amount;
   if (booking) {
     const skus = booking.items?.map(i => i.sku) || [];
-    const { items, total } = priceCart(skus);
+    const guest = booking.guest || {};
+    const storedItems = booking.items || [];
+    const { items, total } = priceCart(skus, {
+      nights: booking.nights || storedItems.find(i => i.nights)?.nights,
+      adults: booking.adults || guest.adults,
+      children: booking.children || guest.children,
+    });
     const { deposit, full } = computeDepositOptions(total);
     console.log(`[chargeCard] Booking ${bookingId}: items=${JSON.stringify(items)}, total=${total}, deposit=${deposit}, full=${full}, clientAmount=${amount}`);
     const isValidAmount = Math.abs(amount - deposit) < 0.01 || Math.abs(amount - full) < 0.01;

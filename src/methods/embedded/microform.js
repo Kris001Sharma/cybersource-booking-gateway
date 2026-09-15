@@ -14,13 +14,14 @@ import { chargeCard } from "./shared-charge.js";
 import { injectThemeCSS } from "../../client/theme.js";
 
 export async function createSession(request, env) {
-  const { skus, payAmount, guest } = await request.json();
-  const { items, total } = priceCart(skus);
+  const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
+  const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
+  const { items, total } = priceCart(skus, { nights, adults, children });
   const { deposit, full } = computeDepositOptions(total);
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "microform" });
+  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "microform", nights, adults, children });
 
   const reqUrl = new URL(request.url);
   const targetOrigins = [env.CHECKOUT_ORIGIN || reqUrl.origin];
@@ -218,6 +219,10 @@ export function renderCheckoutPage(url) {
   <script>
     const params = new URLSearchParams(location.search);
     const items = params.get('items') || '';
+    const quoteOptions = {
+      checkin: params.get('checkin') || '', checkout: params.get('checkout') || '',
+      adults: Number(params.get('adults')) || 1, children: Number(params.get('children')) || 0
+    };
     let quote, sessionInfo, microform;
 
     function loadMicroformScript(clientLibrary, clientLibraryIntegrity) {
@@ -236,7 +241,8 @@ export function renderCheckoutPage(url) {
       return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
     }
 
-    fetch('/api/quote?items=' + encodeURIComponent(items))
+    const quoteParams = new URLSearchParams({ items, ...quoteOptions });
+    fetch('/api/quote?' + quoteParams.toString())
       .then(r => r.json())
       .then(q => {
         quote = q;
@@ -251,7 +257,7 @@ export function renderCheckoutPage(url) {
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            skus: items.split(','), payAmount: 'deposit',
+            skus: items.split(','), payAmount: 'deposit', ...quoteOptions,
             guest: {
               firstName: document.getElementById('bill-first').value,
               lastName: document.getElementById('bill-last').value,

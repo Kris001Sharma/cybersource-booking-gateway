@@ -9,13 +9,14 @@ import { createBooking, updateBookingStatus } from "../../bookings.js";
 
 export async function createLink(request, env, ctx) {
   const t0 = Date.now();
-  const { skus, payAmount, guest } = await request.json();
-  const { items, total } = priceCart(skus);
+  const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
+  const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
+  const { items, total } = priceCart(skus, { nights, adults, children });
   const { deposit, full } = computeDepositOptions(total);
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "paylink" });
+  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "paylink", nights, adults, children });
   if (ctx?.waitUntil) ctx.waitUntil(bookingPromise);
   else await bookingPromise;
 

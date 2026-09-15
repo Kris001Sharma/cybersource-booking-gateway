@@ -18,13 +18,14 @@ import { setupAuthentication, checkEnrollment as checkPayerEnrollment } from "./
 import { chargeCard } from "./shared-charge.js";
 
 export async function createSession(request, env) {
-  const { skus, payAmount, guest } = await request.json();
-  const { items, total } = priceCart(skus);
+  const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
+  const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
+  const { items, total } = priceCart(skus, { nights, adults, children });
   const { deposit, full } = computeDepositOptions(total);
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "unified" });
+  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "unified", nights, adults, children });
 
   const origin = env.CHECKOUT_ORIGIN || new URL(request.url).origin;
   const result = await cybersourceRequest(env, "POST", "/up/v1/sessions", {

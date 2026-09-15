@@ -10,6 +10,7 @@ let microformInstance = null;
 let currentBookingId = null;
 let currentQuote = null;
 let currentSkus = [];
+let currentQuoteOptions = {};
 
 // Initialize the page
 export async function renderPage(url) {
@@ -21,6 +22,12 @@ export async function renderPage(url) {
   const params = new URLSearchParams(url.search);
   currentSkus = (params.get("items") || "").split(",").map(s => s.trim()).filter(Boolean);
   const skus = currentSkus;
+  currentQuoteOptions = {
+    checkin: params.get("checkin") || "",
+    checkout: params.get("checkout") || "",
+    adults: Number(params.get("adults")) || 1,
+    children: Number(params.get("children")) || 0,
+  };
 
   // Check for empty cart
   if (!skus.length) {
@@ -31,7 +38,7 @@ export async function renderPage(url) {
   // Fetch initial quote
   let quote;
   try {
-    quote = await cart.fetchQuote(skus);
+    quote = await cart.fetchQuote(skus, currentQuoteOptions);
   } catch (error) {
     console.error("Failed to fetch quote:", error);
     showErrorState("Failed to load pricing information");
@@ -376,7 +383,7 @@ async function handleContinueToPayment() {
     const payAmount = getSelectedPayAmount();
 
     // Create session
-    const sessionData = await createSession(currentSkus, payAmount, guest);
+    const sessionData = await createSession(currentSkus, payAmount, guest, currentQuoteOptions);
 
     // Mount card fields
     await mountCardFields(sessionData.captureContext);
@@ -575,14 +582,15 @@ function showValidationErrors(errors) {
   showError(`Please fix the following: ${errorSummary}`);
 }
 
-async function createSession(skus, payAmount, guest) {
+async function createSession(skus, payAmount, guest, quoteOptions = {}) {
   const response = await fetch("/api/microform/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       skus,
       payAmount,
-      guest
+      guest,
+      ...quoteOptions
     })
   });
 
@@ -732,7 +740,7 @@ async function handleRemoveItem(event) {
 
     // Re-fetch quote for updated total
     const skus = cart.getCart();
-    const quote = await cart.fetchQuote(skus);
+    const quote = await cart.fetchQuote(skus, currentQuoteOptions);
 
     // Update UI
     elements.cartTotal.textContent = `$${quote.total.toFixed(2)}`;

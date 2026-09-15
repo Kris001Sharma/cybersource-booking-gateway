@@ -5,7 +5,8 @@
 // Catalog prices defined here; new SKUs synchronized with src/config.js rooms array.
 // For full customization (prices, descriptions, SKUs), edit src/config.js and reload the module.
 // The embedded config module (src/config.js) is the single source of truth — site-config.json has been removed.
-// Note: rooms/activities from config.js are referenced conceptually but not imported here to avoid redundant coupling.
+import { packages, rooms } from "./config.js";
+
 export const CATALOG = {
   "room-single": { name: "Single Room", price: 50, type: "room" },
   "room-double": { name: "Double Room", price: 70, type: "room" },
@@ -23,14 +24,48 @@ export const CATALOG = {
   "test-item": { name: "Connectivity Test", price: 1, type: "test" },
 };
 
-export function priceCart(skus) {
+const PACKAGE_CATALOG = Object.fromEntries(packages.map((pkg) => [pkg.slug, pkg]));
+const ROOM_CATALOG = Object.fromEntries(rooms.map((room) => [room.slug, room]));
+for (const room of rooms) {
+  CATALOG[room.slug] = { name: room.name, price: Number(room.pricePerNight) || 0, type: "room" };
+}
+
+export function getPackageFromSku(sku) {
+  if (!sku || !sku.startsWith("pkg|")) return null;
+  const [, slug, plan = "bb"] = sku.split("|");
+  const pkg = PACKAGE_CATALOG[slug];
+  if (!pkg) return null;
+  return { pkg, plan: plan === "full" ? "full" : "bb" };
+}
+
+function numericPrice(value) {
+  return Number(String(value ?? "").replace(/[^0-9.]/g, "")) || 0;
+}
+
+export function priceCart(skus, options = {}) {
   const items = [];
   let total = 0;
+  const adults = Math.max(1, Number(options.adults) || 1);
+  const children = Math.max(0, Number(options.children) || 0);
+  const nights = Math.max(0, Number(options.nights) || 0);
   for (const sku of skus) {
+    if (sku.startsWith("pkg|")) {
+      const parsed = getPackageFromSku(sku);
+      if (!parsed) continue;
+      const { pkg, plan } = parsed;
+      const adultPrice = numericPrice(plan === "full" ? pkg.fullBoard : pkg.bb);
+      const lineTotal = round2(adultPrice * adults + adultPrice * 0.4 * children);
+      items.push({ sku, name: pkg.name + " (" + (plan === "full" ? "Full Board" : "B&B") + ")", price: adultPrice, quantity: adults, children, nights: pkg.nights, total: lineTotal, type: "package" });
+      total += lineTotal;
+      continue;
+    }
     const item = CATALOG[sku];
     if (!item) continue; // unknown SKU is silently dropped, not trusted
-    items.push({ sku, name: item.name, price: item.price });
-    total += item.price;
+    const room = ROOM_CATALOG[sku];
+    const quantity = room && nights > 0 ? nights : 1;
+    const lineTotal = round2(item.price * quantity);
+    items.push({ sku, name: item.name, price: item.price, quantity, nights: room ? nights : undefined, total: lineTotal, type: item.type });
+    total += lineTotal;
   }
   return { items, total: round2(total) };
 }

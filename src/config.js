@@ -34,6 +34,7 @@ export const siteInfo = {
   checkoutOrigin: "https://book.krishna-sharma.com.np",
   logoUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789362870/e6d45606-15b6-402f-97d3-dbacdb266e8f-Photoroom_bc6vgy.png",
   backgroundUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp",
+  contentBackgroundUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789483192/graffity_m0s6do.png",
   heroTitle: "Sapana Village",
   heroSubtitle: "A quiet retreat in the foothills — rooms, guided hikes, spa, and private dinners.",
   siteTitle: "Sapana Village — Book",
@@ -51,7 +52,7 @@ export const packages = [
     fullBoard: "$340",
     bb: "$280",
     skus: ["room-double", "act-spa", "act-hike"],
-    imageUrl: "",
+    imageUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789488378/graffity_1_zs5njm.png",
     featured: true,
   },
   {
@@ -65,7 +66,7 @@ export const packages = [
     fullBoard: "$520",
     bb: "$420",
     skus: ["room-suite", "act-spa", "act-hike", "act-dinner"],
-    imageUrl: "",
+    imageUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789488378/graffity_1_zs5njm.png",
     featured: false,
   },
   {
@@ -79,7 +80,7 @@ export const packages = [
     fullBoard: "$200",
     bb: "$160",
     skus: ["room-single", "act-spa", "act-hike"],
-    imageUrl: "",
+    imageUrl: "https://res.cloudinary.com/devkrish/image/upload/v1789483192/graffity_m0s6do.png",
     featured: true,
   },
   {

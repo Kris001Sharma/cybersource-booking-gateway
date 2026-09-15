@@ -4,6 +4,7 @@ import { packages, activities, rooms, siteInfo } from "../config.js";
 
 export function renderPage(url) {
   const bgUrl = siteInfo && siteInfo.backgroundUrl ? siteInfo.backgroundUrl : '';
+  const contentBackgroundUrl = siteInfo && siteInfo.contentBackgroundUrl ? siteInfo.contentBackgroundUrl : '';
   const metaScript = `
     // Embedded config — source of truth is src/config.js (replaced site-config.json)
     // Where to change: edit src/config.js packages, rooms, activities, theme.
@@ -41,8 +42,9 @@ export function renderPage(url) {
 ${injectThemeCSS()}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--cream); color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; }
+body { background: var(--cream) url('${contentBackgroundUrl}') center top / 720px auto fixed no-repeat; }
 h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
-.container { max-width: 1120px; margin: 0 auto; padding: 32px 20px; }
+.container { position: relative; max-width: 1120px; margin: 0 auto; padding: 32px 20px; background: rgba(250,247,242,.82); }
 .hero-shell { width: 100%; padding: 0; overflow: hidden; background: var(--cream); }
 .hero { position: relative; width: 100%; min-height: 680px; text-align: center; padding: 30px 20px 112px; overflow: hidden; background: url('${bgUrl}') center top/cover no-repeat; color: #fff; display: flex; flex-direction: column; align-items: center; }
 .hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(44,36,31,0.28), rgba(44,36,31,0.52)); z-index: 0; pointer-events: none; }
@@ -94,7 +96,9 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
 .cart-footer { position: fixed; left: 20px; right: 20px; bottom: 18px; z-index: 80; background: rgba(250,247,242,.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,.85); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; max-width: 1120px; margin: 0 auto; border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(44,36,31,.16); }
 .cart-footer-content { min-width: 0; }
 .cart-items-list { display: flex; flex-wrap: wrap; gap: 5px; max-width: 720px; }
-.cart-item { display: inline-flex; align-items: center; background: var(--accent-light); padding: 4px 8px; border-radius: var(--radius-sm); color: var(--text-primary); font-size: .78rem; }
+.cart-item { display: inline-flex; align-items: center; background: var(--accent-light); padding: 5px 9px; border-radius: var(--radius-sm); color: var(--text-primary); font-size: .78rem; }
+.cart-item strong, .cart-item small { display: block; }
+.cart-item small { color: var(--text-secondary); font-size: .68rem; margin-top: 2px; }
 .cart-item a { color: var(--error); text-decoration: none; font-weight: 700; margin-left: 5px; }
 .cart-meta { color: var(--text-secondary); font-size: .84rem; margin-top: 5px; }
 .cart-total { color: var(--accent); font-size: 1.05rem; font-weight: 700; }
@@ -130,29 +134,50 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
 .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-top: 36px; }
 .catalog-grid .card { scroll-snap-align: start; flex: 0 0 320px; overflow: hidden; position: relative; }
 .card { background: var(--glass-white); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 0; box-shadow: var(--glass-shadow); transition: transform 0.2s ease, box-shadow 0.2s ease; overflow: hidden; position: relative; height: 420px; }
+.package-card { background: #332923; }
 .card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(44,36,31,0.12); }
+.package-card .card-img-wrap { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
 .card .card-img-wrap { position: relative; width: 100%; height: 260px; overflow: hidden; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.package-card .card-img-wrap { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
+.package-card .card-img-wrap::after { border-radius: inherit; }
+.package-card:hover .card-img-wrap img, .package-card.active .card-img-wrap img { transform: scale(1.04); }
 .card .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* Dark overlay over image for white text */
-.card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(44,36,31,0.65) 0%, rgba(44,36,31,0.35) 50%, rgba(44,36,31,0.2) 100%); pointer-events: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(44,36,31,0.72) 0%, rgba(44,36,31,0.35) 52%, rgba(44,36,31,0.16) 100%); pointer-events: none; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.package-card .card-img-wrap::after { border-radius: inherit; }
 /* Theme bookmark top-left */
 .card .theme-badge { position: absolute; top: 14px; right: 14px; z-index: 3; background: rgba(255,255,255,0.92); color: var(--accent); font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 12px; border-radius: 4px; box-shadow: 0 2px 8px rgba(44,36,31,0.12); }
+.card .duration-badge { position: absolute; top: 14px; left: 14px; z-index: 3; background: rgba(44,36,31,.7); color: #fff; font-size: .68rem; font-weight: 700; letter-spacing: .05em; padding: 5px 10px; border-radius: 4px; }
 /* Title over image - white with subtle shadow */
 .card .img-title-overlay { position: absolute; bottom: 14px; left: 14px; right: 14px; z-index: 2; }
 .card .img-title-overlay h3 { font-family: "DM Sans", system-ui, sans-serif; font-size: 1.35rem; color: #fff; text-shadow: 0 2px 12px rgba(44,36,31,0.6); margin: 0 0 4px; line-height: 1.15; }
 .card .img-title-overlay .nights-info { font-size: 0.85rem; color: rgba(255,255,255,0.92); text-shadow: 0 1px 8px rgba(44,36,31,0.5); }
 /* Default visible text area below image */
 .card .card-body { padding: 14px 18px 10px; background: var(--glass-white); }
+.package-card .card-body { position: absolute; left: 18px; right: 18px; bottom: 16px; z-index: 2; padding: 0; background: transparent; color: #fff; pointer-events: none; }
+.package-card .from-price { color: rgba(255,255,255,.92); font-size: .9rem; font-weight: 600; text-shadow: 0 2px 10px rgba(0,0,0,.5); }
 .card .card-body .card-sub { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 6px; }
 /* Details slide up from bottom inside fixed card */
-.card .card-details { position: absolute; bottom: 0; left: 0; right: 0; padding: 0 18px 16px; display: none; animation: slideUp 0.35s ease both; background: linear-gradient(to top, var(--cream) 0%, rgba(250,247,242,0.75) 100%); border-top: 1px solid rgba(44,36,31,0.08); }
-.card:hover .card-details,
-.card.active .card-details { display: block; }
+.card .card-details { position: absolute; bottom: 0; left: 0; right: 0; z-index: 4; min-height: 68%; padding: 22px 18px 16px; display: none; flex-direction: column; justify-content: flex-end; animation: slideUp 0.35s ease both; background: linear-gradient(to top, rgba(35,25,20,.98) 0%, rgba(57,39,30,.94) 76%, rgba(57,39,30,.72) 100%); border-top: 1px solid rgba(255,255,255,.18); color: #fff; }
+.package-card:hover .card-details,
+.package-card.active .card-details { display: flex; }
+.package-card .card-details h3 { color: #fff; font-size: 1.25rem; margin: 0 0 8px; }
+.package-card .card-details p { color: rgba(255,255,255,.84); font-size: .8rem; line-height: 1.45; margin: 0 0 10px; }
+.package-card .includes { color: rgba(255,255,255,.86); margin: 0 0 14px; padding-left: 18px; font-size: .76rem; line-height: 1.5; }
+.package-card .card-details .price-options { margin-top: auto; }
 /* Price options and buttons */
 .card .price-options { display: flex; gap: 8px; margin-bottom: 10px; }
-.card .price-opt { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.35); text-align: center; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.2s; color: var(--text-primary); }
-.card .price-opt.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
-.card .btn { width: 100%; border-radius: 8px; padding: 10px; font-size: 0.85rem; text-align: center; }
+.card .price-opt { position: relative; flex: 1; padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); text-align: center; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.2s; color: #fff; }
+.card .price-opt span { display: block; font-size: .7rem; font-weight: 400; opacity: .86; margin-top: 3px; }
+.card .price-opt.selected { background: var(--accent); color: #fff; border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.2); }
+.card .price-opt.selected::after { content: '\\2713'; position: absolute; top: 4px; right: 6px; font-size: .75rem; }
+.card .price-opt { min-height: 52px; }
+.card .selection-confirmation { display: none; color: #a9e6b2; font-size: .8rem; font-weight: 600; margin: 8px 0; }
+.card.selected .selection-confirmation { display: block; animation: selectionPop .25s ease both; }
+.card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(184,92,56,.18), 0 14px 38px rgba(44,36,31,.16); }
+@keyframes selectionPop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+.package-card .btn { display: none; }
+.package-card.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(184,92,56,.65), 0 16px 42px rgba(44,36,31,.24); }
 /* Animation for slide-up */
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(12px); }
@@ -196,6 +221,9 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
   .cart-footer { left: 10px; right: 10px; bottom: 10px; padding: 10px 12px; }
   .cart-items-list { max-width: calc(100vw - 150px); max-height: 42px; overflow: hidden; }
   .cart-actions .btn { padding: 9px 12px; font-size: .8rem; }
+  .package-card .card-details { min-height: 78%; padding: 18px 14px 14px; }
+  .package-card .card-details p { font-size: .76rem; }
+  .package-card .includes { font-size: .7rem; margin-bottom: 10px; }
 }
 @media (max-width: 600px) {
   .catalog-grid { grid-template-columns: 1fr; }
@@ -356,6 +384,47 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
   function clearDateError() {
     const el = document.getElementById('date-error'); if (el) el.textContent = '';
   }
+  function buildPackageCard(key, pkg) {
+    const card = document.createElement('div');
+    card.className = 'card package-card';
+    card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
+    const includesHtml = (pkg.includes || []).map(i => '<li>' + i + '</li>').join('');
+    const imgUrl = pkg.imageUrl || pkg.image || 'https://res.cloudinary.com/devkrish/image/upload/v1789488378/graffity_1_zs5njm.png';
+    const nightsInfo = pkg.nights > 0 ? pkg.nights + ' N / ' + (pkg.nights + 1) + ' Days' : '';
+    const bbLabel = pkg.bb || (pkg.priceRange ? pkg.priceRange.split('–')[0].trim() : '');
+    card.innerHTML =
+      '<div class="card-img-wrap">' +
+        '<img src="' + imgUrl + '" alt="' + pkg.name + '" class="card-img">' +
+        '<span class="duration-badge">' + nightsInfo + '</span>' +
+        '<span class="theme-badge">' + pkg.theme + '</span>' +
+        '<div class="img-title-overlay"><h3>' + pkg.name + '</h3><div class="from-price">From <span class="price-value">' + pkg.bb + '</span> / person</div></div>' +
+      '</div>' +
+      '<div class="card-details">' +
+        '<h3>' + pkg.name + '</h3>' +
+        '<p>' + (pkg.description ? (pkg.description.length > 150 ? pkg.description.substring(0, 150).trim() + '...' : pkg.description) : '') + '</p>' +
+        '<ul class="includes">' + includesHtml + '</ul>' +
+        '<div class="price-options">' +
+          '<button class="price-opt" aria-pressed="false" data-price="' + pkg.bb + '" data-plan="bb" data-key="' + key + '">B&amp;B<br><span>' + pkg.bb + ' / person</span></button>' +
+          '<button class="price-opt" aria-pressed="false" data-price="' + pkg.fullBoard + '" data-plan="full" data-key="' + key + '">Full Board<br><span>' + (pkg.fullBoard || pkg.bb || '') + ' / person</span></button>' +
+        '</div>' +
+        '<div class="selection-confirmation" aria-live="polite">&#10003; Added to your selection</div>' +
+      '</div>';
+    card.addEventListener('click', (event) => {
+      if (!event.target.closest('button')) card.classList.toggle('active');
+    });
+card.querySelectorAll('.price-opt').forEach((option) => {
+      option.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (option.classList.contains('selected')) return;
+        card.querySelectorAll('.price-opt').forEach((button) => { button.classList.remove('selected'); button.setAttribute('aria-pressed', 'false'); });
+        option.classList.add('selected');
+        option.setAttribute('aria-pressed', 'true');
+        addPackage(key, option.dataset.plan, card);
+      });
+    });
+    card.querySelector('.card-details').addEventListener('click', (innerEvent) => innerEvent.stopPropagation());
+    return card;
+  }
   function renderPackages() {
     const grid = document.getElementById("packages-grid"); grid.innerHTML = "";
     const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
@@ -370,54 +439,7 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
       return;
     }
     for (const [key, pkg] of filteredPackages) {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
-      const includesHtml = pkg.includes.map(i => '<li>' + i + '</li>').join('');
-      const imgUrl = pkg.imageUrl || pkg.image || '';
-      const imgSrc = imgUrl ? imgUrl : 'https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp';
-      const nightsInfo = pkg.nights > 0 ? pkg.nights + ' N / ' + (pkg.nights + 1) + ' Days' : '';
-      const bbLabel = pkg.bb ? pkg.bb : (pkg.priceRange ? pkg.priceRange.split('–')[0].trim() : '');
-      card.innerHTML =
-        '<div class="card-img-wrap">' +
-          '<img src="' + imgSrc + '" alt="' + pkg.name + '" class="card-img">' +
-          '<span class="theme-badge">' + pkg.theme + '</span>' +
-          '<div class="img-title-overlay">' +
-            '<h3>' + pkg.name + '</h3>' +
-            '<div class="nights-info">' + nightsInfo + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="card-body">' +
-          '<div class="from-price">From ' + bbLabel + ' / person</div>' +
-        '</div>' +
-        '<div class="card-details">' +
-          '<p>' + (pkg.description ? (pkg.description.length > 120 ? pkg.description.substring(0, 120).trim() + '...' : pkg.description) : '') + '</p>' +
-          '<ul class="includes">' + includesHtml + '</ul>' +
-          '<div class="price-options">' +
-            '<button class="price-opt" data-price="' + pkg.bb + '" data-key="' + key + '">B&amp;B<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + bbLabel + '</span></button>' +
-            '<button class="price-opt" data-price="' + pkg.fullBoard + '" data-key="' + key + '">Full Board<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + (pkg.fullBoard || '') + '</span></button>' +
-          '</div>' +
-          '<button class="btn" data-key="' + key + '">Select</button>' +
-        '</div>';
-      card.addEventListener('click', (e) => {
-        if (!e.target.closest('button') && !e.target.closest('.price-opt')) {
-          card.classList.toggle('active');
-        }
-      });
-      // Price option selection
-      card.querySelectorAll('.price-opt').forEach(optBtn => {
-        optBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          card.querySelectorAll('.price-opt').forEach(b => b.classList.remove('selected'));
-          optBtn.classList.add('selected');
-        });
-      });
-      // Select package
-      const selectBtn = card.querySelector('.btn');
-      selectBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        addPackage(key);
-      });
+      const card = buildPackageCard(key, pkg);
       grid.appendChild(card);
     }
   }
@@ -545,17 +567,30 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     const selectedPrice = selectedBtn ? selectedBtn.getAttribute('data-selected-price') : null;
     addPackage(pkgKey);
   }
-  async function addPackage(key) {
+  async function addPackage(key, plan = 'bb', card = null) {
     const pkg = PACKAGES[key];
     if (!pkg) return;
+    const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
+    if (nights > 0 && pkg.nights > nights) {
+      const extend = window.confirm('This package requires ' + pkg.nights + ' nights, but your stay is ' + nights + ' nights. Would you like to extend your stay?');
+      if (extend) openCalendar('checkout');
+      return;
+    }
     const current = new URLSearchParams(window.location.search).get("items") || "";
     const items = current ? current.split(",").filter(Boolean) : [];
-    const newItems = [...items, ...pkg.skus.filter(s => !items.includes(s))];
+    const packageSku = 'pkg|' + key + '|' + (plan === 'full' ? 'full' : 'bb');
+    const withoutPackage = items.filter(item => !item.startsWith('pkg|'));
+    const newItems = [...withoutPackage, packageSku];
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
     params.set("items", newItems.join(","));
     url.search = params.toString();
     window.history.replaceState({}, "", url.toString());
+    if (card) {
+      document.querySelectorAll('.card.selected').forEach((selectedCard) => selectedCard.classList.remove('selected'));
+      card.classList.add('selected');
+      card.querySelector('.card-details').addEventListener('click', (innerEvent) => innerEvent.stopPropagation());
+    }
     await updateCartUI();
   }
   async function addActivity(key) {
@@ -595,12 +630,27 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     document.getElementById("cart-items-label").textContent = skus.length + " item" + (skus.length > 1 ? "s" : "");
     const listEl = document.getElementById("cart-items-list");
     try {
-      const resp = await fetch('/api/quote?items=' + encodeURIComponent(skus.join(',')));
+      const quoteParams = new URLSearchParams({
+        items: skus.join(','),
+        checkin: selectedCheckin,
+        checkout: selectedCheckout,
+        adults: String(guests.adults),
+        children: String(guests.children),
+      });
+      const defaultPrice = card.querySelector('.price-opt[data-plan="bb"]');
+      if (defaultPrice) {
+        defaultPrice.classList.add('selected');
+        defaultPrice.setAttribute('data-selected-price', defaultPrice.getAttribute('data-price'));
+      }
+      const resp = await fetch('/api/quote?' + quoteParams.toString());
       const data = await resp.json();
       document.getElementById("cart-total").textContent = "$" + data.total;
       listEl.innerHTML = data.items.map(item => {
         const label = item.name || item.sku;
-        return '<span style="display:inline-block; background:var(--accent-light); padding:2px 6px; border-radius:var(--radius-sm); margin-right:4px; font-size:0.8rem;" data-sku="' + item.sku + '" class="cart-item">' + label + ' <a href="#" style="color:var(--error); text-decoration:none; font-weight:bold; margin-left:4px;">×</a></span>';
+        const detail = item.type === 'package'
+          ? item.nights + ' nights · $' + item.price + ' / adult'
+          : item.nights ? item.nights + ' nights · $' + item.price + ' / night' : '$' + item.price;
+        return '<span data-sku="' + item.sku + '" class="cart-item"><span><strong>' + label + '</strong><small>' + detail + '</small></span><a href="#" aria-label="Remove ' + label + '">×</a></span>';
       }).join('');
       // Attach removal listeners after render
       listEl.querySelectorAll('a').forEach(link => {
@@ -618,6 +668,11 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
   async function clearCart(e) {
     if (e) e.preventDefault();
     setCart([]);
+    document.querySelectorAll('.package-card.selected').forEach((card) => {
+      card.classList.remove('selected');
+      const btnEl = card.querySelector('.btn');
+      if (btnEl) btnEl.textContent = 'Select package';
+    });
     await updateCartUI();
   }
   async function removeItem(sku, e) {
@@ -636,6 +691,7 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     url.search = "items=" + encodeURIComponent(itemsStr);
     if (selectedCheckin) url.search += "&checkin=" + selectedCheckin;
     if (selectedCheckout) url.search += "&checkout=" + selectedCheckout;
+    url.search += "&adults=" + guests.adults + "&children=" + guests.children;
     window.location.href = "/checkout?" + url.search.slice(1);
   }
   // Calendar-based event handling
@@ -840,7 +896,8 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
       card.className = 'card';
       card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
       const shortDesc = (r.description || '').length > 80 ? (r.description || '').substring(0, 80).trim() + '...' : (r.description || '');
-      card.innerHTML = '<h3>' + r.name + '</h3><p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.45;">' + shortDesc + '</p><div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted);">Capacity: ' + r.capacity + ' � $' + r.pricePerNight + ' / night</div>';
+      const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
+      card.innerHTML = '<h3>' + r.name + '</h3><p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.45;">' + shortDesc + '</p><div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted);">Capacity: ' + r.capacity + ' · $' + r.pricePerNight + ' / night' + (nights ? ' · ' + nights + ' nights' : '') + '</div>';
       const btn = document.createElement('button');
       btn.className = 'btn btn-outline';
       btn.textContent = 'Add room';
@@ -863,54 +920,7 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     const grid = document.getElementById('signature-grid'); if (!grid) return; grid.innerHTML = '';
     const featuredPkgs = Object.entries(PACKAGES).filter(([k, pkg]) => pkg.featured).slice(0, 3);
     for (const [key, pkg] of featuredPkgs) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
-      const includesHtml = pkg.includes.map(i => '<li>' + i + '</li>').join('');
-      const imgUrl = pkg.imageUrl || pkg.image || '';
-      const imgSrc = imgUrl ? imgUrl : 'https://res.cloudinary.com/devkrish/image/upload/v1789361425/svl-front_vszhbm.webp';
-      const nightsInfo = pkg.nights > 0 ? pkg.nights + ' N / ' + (pkg.nights + 1) + ' Days' : '';
-      const bbLabel = pkg.bb ? pkg.bb : (pkg.priceRange ? pkg.priceRange.split('–')[0].trim() : '');
-      card.innerHTML =
-        '<div class="card-img-wrap">' +
-          '<img src="' + imgSrc + '" alt="' + pkg.name + '" class="card-img">' +
-          '<span class="theme-badge">' + pkg.theme + '</span>' +
-          '<div class="img-title-overlay">' +
-            '<h3>' + pkg.name + '</h3>' +
-            '<div class="nights-info">' + nightsInfo + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="card-body">' +
-          '<div class="from-price">From ' + bbLabel + ' / person</div>' +
-        '</div>' +
-        '<div class="card-details">' +
-          '<p>' + (pkg.description ? (pkg.description.length > 120 ? pkg.description.substring(0, 120).trim() + '...' : pkg.description) : '') + '</p>' +
-          '<ul class="includes">' + includesHtml + '</ul>' +
-          '<div class="price-options">' +
-            '<button class="price-opt" data-price="' + pkg.bb + '" data-key="' + key + '">B&amp;B<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + bbLabel + '</span></button>' +
-            '<button class="price-opt" data-price="' + pkg.fullBoard + '" data-key="' + key + '">Full Board<br><span style="font-size:0.7rem;font-weight:400;opacity:0.8;">' + (pkg.fullBoard || '') + '</span></button>' +
-          '</div>' +
-          '<button class="btn" data-key="' + key + '">Select</button>' +
-        '</div>';
-      card.addEventListener('click', (e) => {
-        if (!e.target.closest('button') && !e.target.closest('.price-opt')) {
-          card.classList.toggle('active');
-        }
-      });
-      // Price option selection
-      card.querySelectorAll('.price-opt').forEach(optBtn => {
-        optBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          card.querySelectorAll('.price-opt').forEach(b => b.classList.remove('selected'));
-          optBtn.classList.add('selected');
-        });
-      });
-      // Select package
-      const selectBtn = card.querySelector('.btn');
-      selectBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        addPackage(key);
-      });
+      const card = buildPackageCard(key, pkg);
       grid.appendChild(card);
     }
   }

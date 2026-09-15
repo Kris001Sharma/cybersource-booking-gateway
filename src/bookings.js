@@ -1,7 +1,7 @@
 // Shared across every payment method module — the Sheet doesn't care which
 // payment product created or completed a booking.
 
-export async function createBooking(env, { bookingId, items, total, amountDue, guest, status = "pending", paymentMethod }) {
+export async function createBooking(env, { bookingId, items, total, amountDue, guest, status = "pending", paymentMethod, nights, adults, children }) {
   if (!guest || Object.keys(guest || {}).length === 0) {
     throw new Error("Guest information is required — booking cannot be created without contact details.");
   }
@@ -14,6 +14,9 @@ export async function createBooking(env, { bookingId, items, total, amountDue, g
     guest: guest || {},
     status,
     paymentMethod,
+    nights,
+    adults,
+    children,
     createdAt: new Date().toISOString(),
   });
 }

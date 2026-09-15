@@ -1,4 +1,4 @@
-import { priceCart, computeDepositOptions } from "./catalog.js";
+import { priceCart, computeDepositOptions, getPackageFromSku } from "./catalog.js";
 import { updateBookingStatus } from "./bookings.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
@@ -113,7 +113,17 @@ async function runReconciliation(env) {
 
 function handleQuote(url) {
   const skus = (url.searchParams.get("items") || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const { items, total } = priceCart(skus);
+  const checkin = url.searchParams.get("checkin") || "";
+  const checkout = url.searchParams.get("checkout") || "";
+  const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
+  const adults = Math.max(1, Number(url.searchParams.get("adults")) || 1);
+  const children = Math.max(0, Number(url.searchParams.get("children")) || 0);
+  const invalidPackage = skus.find((sku) => {
+    const parsed = getPackageFromSku(sku);
+    return parsed && nights > 0 && parsed.pkg.nights > nights;
+  });
+  if (invalidPackage && nights > 0) return json({ error: "Selected package requires a longer stay", sku: invalidPackage, nights }, 400);
+  const { items, total } = priceCart(skus, { nights, adults, children });
   return json({ items, total, deposits: computeDepositOptions(total) });
 }
 

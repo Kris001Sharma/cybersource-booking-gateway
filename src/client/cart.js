@@ -55,9 +55,13 @@ export function setDates(checkin, checkout) {
   window.history.replaceState({}, "", url.toString());
 }
 
-export async function fetchQuote(skus) {
+export async function fetchQuote(skus, options = {}) {
   if (!skus.length) return { items: [], total: 0, deposits: { deposit: 0, full: 0 } };
-  const resp = await fetch(`/api/quote?items=${encodeURIComponent(skus.join(","))}`);
+  const params = new URLSearchParams({ items: skus.join(",") });
+  for (const key of ["checkin", "checkout", "adults", "children"]) {
+    if (options[key] !== undefined && options[key] !== "") params.set(key, String(options[key]));
+  }
+  const resp = await fetch(`/api/quote?${params.toString()}`);
   if (!resp.ok) throw new Error("Failed to fetch quote");
   return resp.json();
 }
