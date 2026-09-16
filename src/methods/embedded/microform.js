@@ -12,6 +12,7 @@ import { cybersourceRequest } from "../../cybersource.js";
 import { setupAuthentication, checkEnrollment as checkPayerEnrollment, validateAuthentication } from "./payer-auth.js";
 import { chargeCard } from "./shared-charge.js";
 import { injectThemeCSS } from "../../client/theme.js";
+import { siteInfo } from "../../config.js";
 
 export async function createSession(request, env) {
   const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
@@ -110,7 +111,7 @@ export function renderCheckoutPage(url) {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${injectThemeCSS()}
-  :root { --ink: #2c241f; --muted: #75685e; --line: #e6ddd3; --panel: rgba(255,255,255,.72); }
+  :root { --ink: #2c241f; --muted: #75685e; --line: #e6ddd3; --panel: rgba(255,255,255,.72); --checkout-label: .82rem; --checkout-value: .96rem; --checkout-hint: .74rem; --checkout-total: 1.28rem; }
   * { box-sizing: border-box; }
   html, body { min-height: 100%; }
   body { margin: 0; background: var(--cream); color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; }
@@ -119,9 +120,11 @@ export function renderCheckoutPage(url) {
   button { cursor: pointer; }
   .checkout-page { position: relative; max-width: 1160px; margin: 0 auto; padding: 34px 24px 64px; }
   .checkout-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 34px; }
-  .brand { color: var(--accent); font-family: "DM Sans", system-ui, sans-serif; font-size: 1.45rem; font-weight: 700; letter-spacing: -.02em; }
-  .secure-note { color: var(--text-muted); font-size: .8rem; display: flex; align-items: center; gap: 6px; }
+  .brand-logo { display: block; width: 180px; height: 70px; object-fit: contain; object-position: left center; }
+  .secure-note { color: var(--text-muted); font-size: .78rem; display: grid; gap: 2px; justify-items: end; text-align: right; }
+  .secure-note strong { color: var(--ink); font-size: .82rem; }
   .secure-note span { color: var(--success); font-size: 1rem; }
+  @media (max-width: 760px) { .secure-note { display: none; } }
   .checkout-intro { margin-bottom: 28px; }
   .eyebrow { color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 9px; }
   .checkout-intro h1 { font-family: "DM Sans", system-ui, sans-serif; font-size: clamp(2rem, 4vw, 3rem); line-height: 1.08; margin: 0 0 10px; letter-spacing: -.03em; }
@@ -133,22 +136,34 @@ export function renderCheckoutPage(url) {
   .checkout-card h3:first-child { margin-top: 0; }
   .cart-list { display: grid; gap: 9px; }
   .cart-line { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 14px; background: rgba(255,255,255,.68); border: 1px solid rgba(230,221,211,.8); border-radius: 12px; }
-  .cart-line strong { display: block; font-size: .92rem; font-weight: 600; }
-  .cart-line small { color: var(--muted); font-size: .78rem; }
+  .cart-line-media { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .cart-line-media img { width: 52px; height: 52px; border-radius: 9px; object-fit: cover; background: var(--line); }
+  .cart-line strong { display: block; font-size: var(--checkout-value); font-weight: 600; }
+  .cart-line small { color: var(--muted); font-size: var(--checkout-hint); }
   .cart-line .remove-item { border: 0; background: transparent; color: var(--text-muted); font-size: .75rem; padding: 5px; }
   .cart-line .remove-item:hover { color: var(--error); }
+  .cart-line .remove-item { border: 0; background: transparent; color: var(--error); font-size: 1rem; padding: 6px; }
+  .confirm-modal { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; padding: 20px; background: rgba(44,36,31,.35); }
+  .confirm-modal.is-open { display: grid; }
+  .confirm-dialog { width: min(100%, 390px); padding: 24px; border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgba(44,36,31,.24); }
+  .confirm-dialog h3 { margin: 0 0 9px; color: var(--ink); font-size: 1.15rem; }
+  .confirm-dialog p { color: var(--muted); font-size: .86rem; line-height: 1.5; margin: 0 0 18px; }
+  .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
   .cart-total { display: flex; justify-content: space-between; border-top: 1px solid var(--line); margin-top: 15px; padding-top: 16px; font-size: 1.08rem; font-weight: 700; }
-  .cart-total strong, #cart-total { color: var(--accent); font-size: 1.3rem; }
+  .cart-total strong, #cart-total { color: var(--accent); font-size: var(--checkout-total); }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .form-group { margin-bottom: 14px; }
-  .form-group label { display: block; color: var(--muted); font-size: .78rem; font-weight: 600; margin: 0 0 7px; }
+  .form-group label { display: block; color: var(--muted); font-size: var(--checkout-label); font-weight: 600; margin: 0 0 7px; }
   .form-group input, .form-group textarea, .form-group select, .checkout-card input:not([type="radio"]), .checkout-card textarea, .checkout-card select { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.78); color: var(--ink); padding: 11px 12px; outline: 0; transition: border-color .2s, box-shadow .2s; }
-  .card-input { min-height: 44px; border: 1px solid var(--line) !important; border-radius: 10px !important; background: rgba(255,255,255,.78); padding: 10px 12px; }
+  .card-input { height: 42px !important; min-height: 42px !important; max-height: 42px; border: 1px solid var(--line) !important; border-radius: 10px !important; background: rgba(255,255,255,.78); padding: 8px 12px; }
+  .card-number-row iframe, .card-fields-row iframe { display: block; width: 100% !important; height: 24px !important; max-height: 24px !important; }
   .form-group input:focus, .form-group textarea:focus, .form-group select:focus, .checkout-card input:not([type="radio"]):focus, .checkout-card textarea:focus, .checkout-card select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184,92,56,.12); }
-  .payment-choice { display: grid; gap: 9px; }
-  .payment-choice label { display: flex; align-items: center; gap: 9px; padding: 12px 14px; background: rgba(255,255,255,.58); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: .86rem; }
+  .payment-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .payment-choice label { display: flex; align-items: center; gap: 9px; min-height: 58px; padding: 12px 14px; background: rgba(255,255,255,.58); border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: var(--checkout-value); }
+  .payment-choice label:has(input:checked) { border-color: var(--accent); background: rgba(184,92,56,.1); color: var(--ink); }
   .payment-choice input { accent-color: var(--accent); }
   .primary-action { width: 100%; border: 0; border-radius: 11px; background: var(--accent); color: #fff; padding: 14px 18px; font-weight: 700; box-shadow: 0 8px 18px rgba(184,92,56,.22); transition: background .2s, transform .2s; }
+  .pay-button-lock { width: 17px; height: 17px; vertical-align: -3px; margin-right: 6px; }
   .primary-action:hover { background: var(--accent-hover); transform: translateY(-1px); }
   .summary-card { position: sticky; top: 20px; }
   .review-card { min-width: 0; }
@@ -156,16 +171,43 @@ export function renderCheckoutPage(url) {
   .stay-overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 0 0 24px; }
   .stay-stat { padding: 12px; border-radius: 12px; background: rgba(255,255,255,.58); border: 1px solid var(--line); }
   .stay-stat small { display: block; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
-  .stay-stat strong { color: var(--ink); font-size: .84rem; }
+  .stay-stat strong { color: var(--ink); font-size: .96rem; }
   .summary-lines { display: grid; gap: 11px; margin: 0 0 18px; }
-  .summary-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .82rem; }
-  .summary-line strong { color: var(--ink); text-align: right; }
-  .summary-line small { display: block; color: var(--text-muted); font-size: .7rem; margin-top: 2px; }
-  .currency-box { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.52); margin: 16px 0; }
+  .summary-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: var(--checkout-label); margin: 0 0 14px; padding-bottom: 2px; }
+  .summary-line strong { color: var(--ink); text-align: right; font-size: var(--checkout-value); }
+  .summary-card > .cart-total, .summary-card > .summary-line { margin-bottom: 12px; }
+  .summary-card > .cart-total { margin-top: 2px; padding-bottom: 2px; }
+  .summary-card > .summary-line + .summary-line { margin-top: 0; }
+  #summary-remaining-row { margin-top: 10px; }
+  .summary-line small { display: block; color: var(--text-muted); font-size: var(--checkout-hint); margin-top: 2px; }
+  .currency-box { padding: 12px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; margin: 14px 0 0; }
+  .currency-box + .currency-box { margin-top: 10px; }
+  .local-currency-toggle { display: block; width: 100%; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--checkout-label); font-weight: 600; text-align: left; padding: 0; cursor: pointer; }
+  .local-currency-panel { display: none; margin-top: 12px; }
+  .currency-box.is-open .local-currency-panel { display: block; }
+  .local-currency-toggle::after { content: '⌄'; float: right; font-size: 1.1rem; }
+  .currency-box.is-open .local-currency-toggle::after { content: '⌃'; }
+  .compact-security { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 16px; border: 1px solid rgba(230,221,211,.9); border-radius: 14px; background: rgba(255,255,255,.68); color: var(--muted); font-size: var(--checkout-hint); box-shadow: 0 8px 20px rgba(44,36,31,.06); }
+  .compact-security svg { width: 20px; height: 20px; color: var(--success); grid-row: span 2; }
+  .compact-security strong { color: var(--ink); font-size: var(--checkout-label); }
+  .currency-box label { display: block; color: var(--muted); font-size: .76rem; font-weight: 600; margin-bottom: 7px; }
+  .currency-box select { width: 100%; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); padding: 9px; }
   .currency-box p { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.45; }
   .currency-box strong { color: var(--ink); }
-  .npr-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; color: var(--accent); font-size: 1.16rem; font-weight: 700; }
-  .summary-card h2 { margin-bottom: 16px; }
+  .npr-total { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; white-space: nowrap; margin-top: 10px; color: var(--accent); font-size: 1.12rem; font-weight: 700; }
+  .rate-source { margin-top: 10px !important; }
+  .rate-source a { color: var(--accent); font-weight: 600; }
+  .summary-card h2 { margin-bottom: 18px; font-size: 1.7rem; }
+  .payment-trust { display: grid; gap: 5px; color: var(--muted); font-size: var(--checkout-hint); line-height: 1.45; }
+  .accepted-cards { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 9px; }
+  .card-brand { display: block; width: 58px; height: 32px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #fff; padding: 4px; }
+  .payment-cards { margin: 10px 0 0; color: var(--muted); font-size: var(--checkout-hint); text-align: center; }
+  .payment-trust-line { margin: 8px 0 0; color: var(--ink); font-size: var(--checkout-hint); text-align: center; }
+  .card-brand.mastercard { color: #d22d2d; }
+  .card-number-row { margin: 8px 0; width: 100%; }
+  .card-fields-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: center; margin: 8px 0; width: 100%; }
+  .card-fields-row select, .card-fields-row .card-input { height: 42px; min-height: 42px; margin: 0; }
+  .card-fields-row .card-input, .card-number-row .card-input { display: flex; align-items: center; overflow: hidden; width: 100%; }
   .summary-copy { color: var(--muted); font-size: .88rem; line-height: 1.55; margin: 0 0 20px; }
   .summary-rule { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
   .trust-item { display: flex; gap: 10px; color: var(--muted); font-size: .8rem; line-height: 1.45; margin: 13px 0; }
@@ -176,36 +218,36 @@ export function renderCheckoutPage(url) {
   @media (max-width: 760px) { .checkout-page { padding: 22px 15px 42px; } .checkout-header { margin-bottom: 25px; } .checkout-layout { grid-template-columns: 1fr; } .summary-card { position: static; } .form-grid { grid-template-columns: 1fr; gap: 0; } }
 </style></head>
 <!-- payment-method: microform -->
-<body><main class="checkout-page">
-  <header class="checkout-header"><div class="brand">Krishna Sharma</div><div class="secure-note"><span>●</span> Secure checkout</div></header>
-  <section class="checkout-intro"><p class="eyebrow">Your reservation</p><h1>Complete your booking</h1><p>Review your selection and enter your details below. Your payment is processed securely.</p></section>
+<body><div id="remove-confirm" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="remove-confirm-title"><div class="confirm-dialog"><h3 id="remove-confirm-title">Remove this activity?</h3><p>This optional activity will be removed from your booking.</p><div class="confirm-actions"><button type="button" id="remove-cancel" class="btn btn-outline">Keep it</button><button type="button" id="remove-confirm-action" class="primary-action" style="width:auto">Remove</button></div></div></div><main class="checkout-page">
+  <header class="checkout-header"><img class="brand-logo" src="${siteInfo.logoUrl}" alt="${siteInfo.siteName}"><div class="secure-note"><strong>Secure checkout</strong><span>Secured by Cybersource · Powered by Visa</span></div></header>
+  <section class="checkout-intro"><p class="eyebrow">Your reservation</p><h1>Complete your booking</h1><p>Review your selection and enter your details below.</p></section>
   <div class="checkout-layout"><section class="checkout-card review-card">
   <h2>Review your booking</h2>
   <div class="stay-overview"><div class="stay-stat"><small>Check-in</small><strong id="review-checkin">Select date</strong></div><div class="stay-stat"><small>Check-out</small><strong id="review-checkout">Select date</strong></div><div class="stay-stat"><small>Duration</small><strong id="review-nights">0 nights</strong></div></div>
   <h3>Your selection</h3><div id="cart" class="cart-list">Loading your selection...</div>
-  <div id="deposit-options" style="display:none"><span id="dep-amt"></span><span id="full-amt"></span></div>
+  <div id="deposit-options" style="display:none"></div>
 
   <h3>Guest information</h3><div class="form-grid">
   <div class="form-group"><label for="bill-first">First name</label><input id="bill-first" placeholder="First name"></div>
   <div class="form-group"><label for="bill-last">Last name</label><input id="bill-last" placeholder="Last name"></div></div>
   <div class="form-group"><label for="bill-email">Email address</label><input id="bill-email" placeholder="you@example.com" type="email"></div>
-  <div class="form-grid"><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
+  <div class="form-group"><label for="bill-phone">Phone number</label><input id="bill-phone" placeholder="Phone number" type="tel"></div>
+  <div class="form-group"><label for="guest-notes">Notes or remarks</label><textarea id="guest-notes" rows="3" placeholder="Anything we should know?"></textarea></div>
+  <h3>Billing address</h3><div class="form-grid"><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
   <div class="form-group"><label for="bill-city">City</label><input id="bill-city" placeholder="City"></div></div>
   <div class="form-grid"><div class="form-group"><label for="bill-state">State / province</label><input id="bill-state" placeholder="State or province"></div>
   <div class="form-group"><label for="bill-zip">Postal code</label><input id="bill-zip" placeholder="Postal code"></div></div>
-  <div class="form-grid"><div class="form-group"><label for="bill-country">Country code</label><input id="bill-country" placeholder="e.g. US" value="US"></div>
-  <div class="form-group"><label for="currency">Currency</label><select id="currency">
-    <option value="USD" selected>USD</option>
-    <option value="NPR">NPR</option>
-  </select></div></div>
+  <div class="form-group"><label for="bill-country">Country</label><input id="bill-country" placeholder="Country" value="Nepal"></div>
 
-  <h3>Payment method</h3><div class="payment-choice">
-    <label><input type="radio" name="pay" value="deposit" checked> <span>Pay deposit: $<span id="dep-amt-copy"></span></span></label>
+  <h3>Payment options</h3><div class="payment-choice">
+    <label><input type="radio" name="pay" value="deposit" checked> <span>Pay 30% deposit: $<span id="dep-amt-copy"></span></span></label>
     <label><input type="radio" name="pay" value="full"> <span>Pay in full: $<span id="full-amt-copy"></span></span></label>
   </div>
+  <p id="remaining-balance-message" class="summary-copy" style="display:none;margin:10px 0 0;">The remaining balance can be conveniently paid during your stay at Sapana Village Resort.</p>
   <h3>Card details</h3>
-  <div id="card-number" class="card-input"></div>
-  <div style="display:flex;gap:8px;margin:8px 0">
+  <div class="card-number-row">
+    <div id="card-number" class="card-input"></div>
+  </div><div class="card-fields-row">
     <select id="exp-month">
       <option value="01">01</option><option value="02">02</option><option value="03">03</option>
       <option value="04">04</option><option value="05">05</option><option value="06">06</option>
@@ -218,7 +260,7 @@ export function renderCheckoutPage(url) {
     </select>
     <div id="security-code" class="card-input security-input"></div>
   </div>
-  <button id="pay-btn" class="primary-action" disabled>Pay securely</button>
+  <button id="pay-btn" class="primary-action" disabled><svg class="pay-button-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><span id="pay-button-label">Pay securely</span></button><div class="payment-cards">Accepted cards<div class="accepted-cards" aria-label="Accepted cards"><img class="card-brand" src="${siteInfo.visaLogoUrl}" alt="Visa"><img class="card-brand" src="${siteInfo.mastercardLogoUrl}" alt="Mastercard"></div><div class="payment-trust-line">Secured by Cybersource · Powered by Visa</div></div>
   <div id="msg"></div>
 
   <!-- Step-Up Challenge container (visible when challenge required) -->
@@ -229,7 +271,7 @@ export function renderCheckoutPage(url) {
     <form id="microform-stepup-form" target="microform-stepup-iframe" method="POST" style="display:none;">
       <input type="hidden" name="JWT" id="microform-stepup-jwt">
     </form>
-  </div></section><aside class="checkout-card summary-card"><h2>Booking summary</h2><div class="summary-lines"><div class="summary-line"><span>Check-in</span><strong id="summary-checkin">Select date</strong></div><div class="summary-line"><span>Check-out</span><strong id="summary-checkout">Select date</strong></div><div class="summary-line"><span>Guests</span><strong id="summary-guests">1 adult</strong></div><div class="summary-line"><span>Nights</span><strong id="summary-summary-nights">0 nights</strong></div></div><hr class="summary-rule"><div class="summary-lines" id="summary-line-items"></div><div class="cart-total"><span>Total USD</span><strong id="cart-total">$0</strong></div><div class="currency-box"><p>Indicative local-currency conversion</p><p><strong id="exchange-rate">USD 1 = NPR --</strong></p><div class="npr-total"><span>Estimated NPR</span><strong id="npr-total">NPR --</strong></div><p id="exchange-source">Fetching latest available rate...</p></div><div class="trust-item"><b>✓</b><span>Secure payment processing</span></div><div class="trust-item"><b>✓</b><span>Your details are kept private</span></div><div class="trust-item"><b>✓</b><span>Instant booking confirmation</span></div><hr class="summary-rule"><p class="summary-copy">Payment is currently submitted in USD. NPR is shown as an estimate based on the latest available exchange rate.</p></aside></div>
+  </div></section><aside class="checkout-card summary-card"><h2>Booking summary</h2><div class="summary-lines"><div class="summary-line"><span>Check-in</span><strong id="summary-checkin">Select date</strong></div><div class="summary-line"><span>Check-out</span><strong id="summary-checkout">Select date</strong></div><div class="summary-line"><span>Guests</span><strong id="summary-guests">1 adult</strong></div><div class="summary-line"><span>Nights</span><strong id="summary-summary-nights">0 nights</strong></div></div><hr class="summary-rule"><div class="summary-lines" id="summary-line-items"></div><div class="cart-total"><span>Total USD</span><strong id="summary-total-usd">USD --</strong></div><div class="summary-line"><span>Net payable now</span><strong id="summary-payable-usd">USD --</strong></div><div class="summary-line"><span>Remaining at the resort</span><strong id="summary-remaining-usd">USD --</strong></div><div class="currency-box"><p><strong id="npr-rate">USD 1 = NPR --</strong></p><div class="npr-total"><span>NPR payable now</span><strong id="npr-total">NPR --</strong></div><p id="exchange-source" class="rate-source">Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a><br>Rate date: --</p></div><div class="currency-box" id="local-currency-box"><button type="button" id="local-currency-toggle" class="local-currency-toggle">Check the payable in your currency?</button><div class="local-currency-panel"><label for="local-currency">Select currency</label><select id="local-currency"><option value="NPR">NPR</option></select><div class="npr-total"><span id="local-total-label">NPR payable now</span><strong id="local-total">NPR --</strong></div></div></div><div class="compact-security"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><strong>Secure payment processing</strong><span>Payment details are encrypted and handled securely through authorized card networks.</span></div></aside></div>
 </main>
   <script>
     const params = new URLSearchParams(location.search);
@@ -273,19 +315,59 @@ export function renderCheckoutPage(url) {
         document.getElementById('summary-guests').textContent = quoteOptions.adults + ' adult' + (quoteOptions.adults === 1 ? '' : 's') + (quoteOptions.children ? ' · ' + quoteOptions.children + ' children' : '');
         document.getElementById('summary-summary-nights').textContent = nights + ' night' + (nights === 1 ? '' : 's');
          document.getElementById('cart').innerHTML =
-           q.items.map(i => '<div class="cart-line"><div><strong>' + i.name + '</strong><small>' + (i.quantity || 1) + ' guest' + ((i.quantity || 1) === 1 ? '' : 's') + (i.nights ? ' · ' + i.nights + ' nights' : '') + '</small></div><span>$' + i.total + '</span></div>').join('') +
+           q.items.map(i => '<div class="cart-line"><div class="cart-line-media"><img src="' + (i.image || '') + '" alt=""><div><strong>' + i.name + '</strong><small>' + (i.quantity || 1) + ' guest' + ((i.quantity || 1) === 1 ? '' : 's') + (i.nights ? ' · ' + i.nights + ' nights' : '') + '</small></div></div>' + (i.type === 'activity' ? '<button type="button" class="remove-item" data-remove-sku="' + i.sku + '" aria-label="Remove activity">&#215;</button>' : '') + '<span>$' + i.total + '</span></div>').join('') +
            '<div class="cart-total"><span>Total</span><strong id="review-total">$' + q.total + '</strong></div>';
          document.getElementById('summary-line-items').innerHTML = q.items.map(i => '<div class="summary-line"><span>' + i.name + '<small>' + (i.quantity || 1) + ' × $' + i.price + (i.nights ? ' · ' + i.nights + ' nights' : '') + '</small></span><strong>$' + i.total + '</strong></div>').join('');
-         document.getElementById('dep-amt').textContent = q.deposits.deposit;
-         document.getElementById('full-amt').textContent = q.deposits.full;
+         let pendingRemoval = null;
+         const modal = document.getElementById('remove-confirm');
+         document.querySelectorAll('[data-remove-sku]').forEach((button) => button.addEventListener('click', () => { pendingRemoval = button.dataset.removeSku; modal.classList.add('is-open'); }));
+         document.getElementById('remove-cancel').addEventListener('click', () => { pendingRemoval = null; modal.classList.remove('is-open'); });
+         document.getElementById('remove-confirm-action').addEventListener('click', () => { if (!pendingRemoval) return; const nextItems = items.split(',').filter((sku) => sku !== pendingRemoval); const nextUrl = new URL(location.href); nextUrl.searchParams.set('items', nextItems.join(',')); location.href = nextUrl.toString(); });
          document.getElementById('dep-amt-copy').textContent = q.deposits.deposit;
          document.getElementById('full-amt-copy').textContent = q.deposits.full;
-        document.getElementById('deposit-options').style.display = 'block';
-        fetch('/api/forex').then((response) => response.json()).then((forex) => {
-          document.getElementById('exchange-rate').textContent = 'USD 1 = NPR ' + Number(forex.rate).toFixed(2);
-          document.getElementById('npr-total').textContent = 'NPR ' + (Number(q.total) * Number(forex.rate)).toFixed(2);
-          document.getElementById('exchange-source').textContent = forex.fallback ? 'Fallback rate shown; live NRB rate unavailable.' : 'Latest rate fetched from configured NRB provider.';
-        }).catch(() => { document.getElementById('exchange-source').textContent = 'Exchange rate unavailable; USD remains the payable currency.'; });
+         document.getElementById('deposit-options').style.display = 'block';
+         document.getElementById('summary-total-usd').textContent = 'USD ' + Number(q.total).toFixed(2);
+         document.getElementById('summary-payable-usd').textContent = 'USD ' + Number(q.deposits.deposit).toFixed(2);
+         document.getElementById('summary-remaining-usd').textContent = 'USD ' + Math.max(0, Number(q.total) - Number(q.deposits.deposit)).toFixed(2);
+         const updatePayableDisplay = () => {
+           const selectedPay = document.querySelector('input[name=pay]:checked')?.value || 'deposit';
+           const payableUsd = selectedPay === 'full' ? Number(q.deposits.full) : Number(q.deposits.deposit);
+           document.getElementById('summary-payable-usd').textContent = 'USD ' + payableUsd.toFixed(2);
+           document.getElementById('summary-remaining-usd').textContent = 'USD ' + Math.max(0, Number(q.total) - payableUsd).toFixed(2);
+           const remainingRow = document.getElementById('summary-remaining-row') || document.getElementById('summary-remaining-usd')?.parentElement;
+           if (remainingRow) remainingRow.style.display = selectedPay === 'deposit' ? 'flex' : 'none';
+           document.getElementById('remaining-balance-message').style.display = selectedPay === 'deposit' ? 'block' : 'none';
+           document.getElementById('pay-button-label').textContent = 'Pay securely · NPR --';
+           document.getElementById('pay-button-label').dataset.payableUsd = String(payableUsd);
+           document.getElementById('pay-button-label').dataset.payableNprRate = 'pending';
+         };
+         document.querySelectorAll('input[name=pay]').forEach((input) => input.addEventListener('change', updatePayableDisplay));
+         updatePayableDisplay();
+         fetch('/api/forex').then((response) => response.json()).then((forex) => {
+          const currencySelect = document.getElementById('local-currency');
+          document.getElementById('local-currency-toggle').addEventListener('click', () => document.getElementById('local-currency-box').classList.toggle('is-open'));
+          const rates = forex.rates || [{ iso3: 'NPR', name: 'Nepalese Rupee', unit: 1, buy: forex.rate }];
+          currencySelect.innerHTML = rates.map((rate) => '<option value="' + rate.iso3 + '">' + rate.iso3 + ' · ' + rate.name + '</option>').join('');
+          const updateLocalTotal = () => {
+            const selected = rates.find((rate) => rate.iso3 === currencySelect.value) || rates[0];
+            const selectedPay = document.querySelector('input[name=pay]:checked')?.value || 'deposit';
+            const payableUsd = selectedPay === 'full' ? Number(q.deposits.full) : Number(q.deposits.deposit);
+            const nprTotal = payableUsd * Number(forex.rate);
+            const selectedUnit = Number(selected.unit) || 1;
+            const nprPerSelectedUnit = Number(selected.buy) / selectedUnit;
+            const converted = selected.iso3 === 'NPR' ? nprTotal : nprTotal / nprPerSelectedUnit;
+            document.getElementById('npr-rate').textContent = 'USD 1 = NPR ' + Number(forex.rate).toFixed(2);
+            document.getElementById('npr-total').textContent = 'NPR ' + nprTotal.toFixed(2);
+           document.getElementById('pay-button-label').textContent = 'Pay securely · NPR ' + nprTotal.toFixed(2);
+           document.getElementById('pay-button-label').dataset.payableNprRate = String(forex.rate);
+            document.getElementById('local-total-label').textContent = selected.iso3 + ' total';
+            document.getElementById('local-total').textContent = selected.iso3 + ' ' + converted.toFixed(2);
+          };
+          currencySelect.addEventListener('change', updateLocalTotal);
+          document.querySelectorAll('input[name=pay]').forEach((input) => input.addEventListener('change', updateLocalTotal));
+          updateLocalTotal();
+          document.getElementById('exchange-source').innerHTML = (forex.fallback ? 'Source: Fallback rate shown; live NRB rate unavailable.' : 'Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a>') + '<br>Rate date: ' + (forex.date || '--');
+        }).catch(() => { document.getElementById('exchange-source').textContent = 'Source: Nepal Rastra Bank · rate unavailable.'; });
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -293,7 +375,9 @@ export function renderCheckoutPage(url) {
             guest: {
               firstName: document.getElementById('bill-first').value,
               lastName: document.getElementById('bill-last').value,
-              email: document.getElementById('bill-email').value
+              email: document.getElementById('bill-email').value,
+              phone: document.getElementById('bill-phone').value,
+              notes: document.getElementById('guest-notes').value
             }
           })
         });

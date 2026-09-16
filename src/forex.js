@@ -5,40 +5,61 @@ function number(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function findRate(payload) {
-  const candidates = [payload?.rate, payload?.usdNpr, payload?.USDNPR, payload?.data?.rate, payload?.data?.usdNpr, payload?.rates?.NPR, payload?.data?.rates?.NPR];
-  for (const candidate of candidates) {
-    const rate = number(candidate);
-    if (rate) return rate;
-  }
-  if (Array.isArray(payload)) {
-    for (const row of payload) {
-      const currency = String(row?.currency || row?.code || row?.isoCode || "").toUpperCase();
-      if (currency === "USD" || currency === "US DOLLAR") {
-        const rate = number(row?.buy || row?.buyRate || row?.buying || row?.sell || row?.sellRate || row?.rate);
-        if (rate) return rate;
-      }
-    }
-  }
-  return null;
+export function parseLatestRates(payload) {
+  const records = Array.isArray(payload?.data?.payload) ? payload.data.payload : [];
+  const sorted = records.sort((a, b) => String(b.modified_on || b.published_on || b.date).localeCompare(String(a.modified_on || a.published_on || a.date)));
+  const latest = sorted[0];
+  if (!latest) return null;
+  return {
+    date: latest.date || null,
+    publishedOn: latest.published_on || null,
+    modifiedOn: latest.modified_on || null,
+    rates: (latest.rates || []).map((rate) => ({
+      iso3: String(rate?.currency?.iso3 || "").toUpperCase(),
+      name: rate?.currency?.name || "",
+      unit: rate?.currency?.unit || 1,
+      buy: number(rate?.buy),
+    })).filter((rate) => rate.iso3 && rate.buy),
+  };
+}
+
+export function parseUsdBuyRate(payload) {
+  const latest = parseLatestRates(payload);
+  const usd = latest?.rates.find((rate) => rate.iso3 === "USD");
+  return usd ? {
+        rate: usd.buy,
+        date: latest.date || null,
+        publishedOn: latest.publishedOn,
+        modifiedOn: latest.modifiedOn,
+      } : null;
 }
 
 export async function getUsdNprRate(env) {
   const now = Date.now();
   if (cache.value && cache.expires > now) return { ...cache.value, cached: true };
   const fallback = number(env.USD_NPR_FALLBACK || 150) || 150;
-  const source = env.NRB_FOREX_URL;
-  if (!source) return { rate: fallback, source: "configured fallback", fetchedAt: new Date().toISOString(), fallback: true };
+  const source = env.NRB_FOREX_URL || "https://www.nrb.org.np/api/forex/v1/rates";
+  const to = new Date();
+  const from = new Date(to);
+  from.setUTCDate(from.getUTCDate() - 7);
+  const params = new URLSearchParams({ page: "1", per_page: "100", from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) });
   try {
-    const response = await fetch(source, { headers: { Accept: "application/json" } });
+    const response = await fetch(source + (source.includes("?") ? "&" : "?") + params.toString(), { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error("Forex provider returned " + response.status);
-    const rate = findRate(await response.json());
-    if (!rate) throw new Error("USD/NPR rate was not found in provider response");
-    const result = { rate, source, fetchedAt: new Date().toISOString(), fallback: false };
+    const selected = parseLatestRates(await response.json());
+    const usd = selected?.rates.find((rate) => rate.iso3 === "USD");
+    if (!selected || !usd) throw new Error("USD buy rate was not found in NRB response");
+    const result = { ...selected, rate: usd.buy, source, fetchedAt: new Date().toISOString(), fallback: false };
     cache.value = result;
     cache.expires = now + 15 * 60 * 1000;
     return result;
   } catch (error) {
     return { rate: fallback, source: "configured fallback", fetchedAt: new Date().toISOString(), fallback: true, error: error.message };
   }
+}
+
+export async function getLatestForexRates(env) {
+  const usd = await getUsdNprRate(env);
+  if (usd.fallback) return { ...usd, rates: [{ iso3: "NPR", name: "Nepalese Rupee", unit: 1, buy: 1 }, { iso3: "USD", name: "U.S. Dollar", unit: 1, buy: usd.rate }] };
+  return usd;
 }

@@ -1,6 +1,6 @@
 import { priceCart, computeDepositOptions, getPackageFromSku } from "./catalog.js";
 import { updateBookingStatus } from "./bookings.js";
-import { getUsdNprRate } from "./forex.js";
+import { getUsdNprRate, getLatestForexRates } from "./forex.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
 import * as paylink from "./methods/hosted/paylink.js";
@@ -20,7 +20,7 @@ export default {
 
     if (p === "/api/debug-env") return handleDebugEnv(env);
     if (p === "/api/quote") return handleQuote(url);
-    if (p === "/api/forex") return json(await getUsdNprRate(env));
+    if (p === "/api/forex") return json(await getLatestForexRates(env));
 
     // ---- Method-specific routes ----
     if (p === "/debug/phase1-test") {

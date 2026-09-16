@@ -65,7 +65,7 @@ export function priceCart(skus, options = {}) {
       const { pkg, plan } = parsed;
       const adultPrice = numericPrice(plan === "full" ? pkg.fullBoard : pkg.bb);
       const lineTotal = round2(adultPrice * adults + adultPrice * 0.4 * children);
-      items.push({ sku, name: pkg.name + " (" + (plan === "full" ? "Full Board" : "B&B") + ")", price: adultPrice, quantity: adults, children, nights: pkg.nights, total: lineTotal, type: "package" });
+      items.push({ sku, name: pkg.name + " (" + (plan === "full" ? "Full Board" : "B&B") + ")", price: adultPrice, quantity: adults, children, nights: pkg.nights, total: lineTotal, type: "package", image: pkg.imageUrl || null });
       total += lineTotal;
       continue;
     }
@@ -74,7 +74,7 @@ export function priceCart(skus, options = {}) {
       if (!parsed) continue;
       const { activity, duration } = parsed;
       const lineTotal = round2(numericPrice(duration.price) * adults);
-      items.push({ sku, name: activity.name + " (" + duration.label + ")", price: numericPrice(duration.price), quantity: adults, total: lineTotal, type: "activity", duration: duration.label });
+      items.push({ sku, name: activity.name + " (" + duration.label + ")", price: numericPrice(duration.price), quantity: adults, total: lineTotal, type: "activity", duration: duration.label, image: activity.imageUrl || null });
       total += lineTotal;
       continue;
     }
@@ -83,7 +83,7 @@ export function priceCart(skus, options = {}) {
     const room = ROOM_CATALOG[sku];
     const quantity = room && nights > 0 ? nights : 1;
     const lineTotal = round2(item.price * quantity);
-    items.push({ sku, name: item.name, price: item.price, quantity, nights: room ? nights : undefined, total: lineTotal, type: item.type });
+    items.push({ sku, name: item.name, price: item.price, quantity, nights: room ? nights : undefined, total: lineTotal, type: item.type, image: room?.imageUrl || null });
     total += lineTotal;
   }
   return { items, total: round2(total) };
@@ -91,14 +91,11 @@ export function priceCart(skus, options = {}) {
 
 export function computeDepositOptions(total) {
   let minDeposit;
-  if (total <= 100) minDeposit = 1;
-  else if (total <= 200) minDeposit = 20;
-  else if (total <= 300) minDeposit = 30;
-  else minDeposit = Math.round(total * 0.1);
+  minDeposit = round2(total * 0.3);
 
-  const pct10 = Math.max(minDeposit, round2(total * 0.1));
+  const pct30 = Math.max(minDeposit, round2(total * 0.3));
   return {
-    deposit: round2(pct10),
+    deposit: round2(pct30),
     full: round2(total),
   };
 }
