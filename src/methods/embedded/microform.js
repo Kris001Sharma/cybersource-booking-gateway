@@ -165,6 +165,17 @@ export function renderCheckoutPage(url) {
   .primary-action { width: 100%; border: 0; border-radius: 11px; background: var(--accent); color: #fff; padding: 14px 18px; font-weight: 700; box-shadow: 0 8px 18px rgba(184,92,56,.22); transition: background .2s, transform .2s; }
   .pay-button-lock { width: 17px; height: 17px; vertical-align: -3px; margin-right: 6px; }
   .primary-action:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .checkout-sticky-pay { position: fixed; left: max(18px, calc((100vw - 1160px) / 2 + 24px)); width: min(calc(100vw - 36px), 696px); bottom: 16px; z-index: 80; display: none; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; border: 1px solid rgba(255,255,255,.9); border-radius: 14px; background: rgba(250,247,242,.95); box-shadow: 0 12px 32px rgba(44,36,31,.16); backdrop-filter: blur(14px); }
+  .checkout-sticky-pay.is-visible { display: flex; }
+  .checkout-sticky-pay strong { color: var(--accent); font-size: 1rem; }
+  .checkout-sticky-pay button { width: auto; padding: 10px 16px; }
+  .session-loading { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: var(--checkout-hint); margin: 10px 0; }
+  .session-loading::before { content: ''; width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: checkout-spin .8s linear infinite; }
+  .field-note, .field-error { color: var(--error); font-size: var(--checkout-hint); line-height: 1.3; margin-top: 4px; }
+  .phone-row { display: block; }
+  @media (min-width: 761px) { .contact-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .billing-compact-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } }
+  @keyframes checkout-spin { to { transform: rotate(360deg); } }
+  @media (max-width: 760px) { .checkout-sticky-pay { left: 10px; right: 10px; bottom: 10px; } .checkout-sticky-pay button { padding: 9px 12px; font-size: .8rem; } }
   .summary-card { position: sticky; top: 20px; }
   .review-card { min-width: 0; }
   .review-card h2, .summary-card h2 { letter-spacing: -.02em; }
@@ -218,7 +229,7 @@ export function renderCheckoutPage(url) {
   @media (max-width: 760px) { .checkout-page { padding: 22px 15px 42px; } .checkout-header { margin-bottom: 25px; } .checkout-layout { grid-template-columns: 1fr; } .summary-card { position: static; } .form-grid { grid-template-columns: 1fr; gap: 0; } }
 </style></head>
 <!-- payment-method: microform -->
-<body><div id="remove-confirm" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="remove-confirm-title"><div class="confirm-dialog"><h3 id="remove-confirm-title">Remove this activity?</h3><p>This optional activity will be removed from your booking.</p><div class="confirm-actions"><button type="button" id="remove-cancel" class="btn btn-outline">Keep it</button><button type="button" id="remove-confirm-action" class="primary-action" style="width:auto">Remove</button></div></div></div><main class="checkout-page">
+<body><div id="checkout-sticky-pay" class="checkout-sticky-pay"><strong id="checkout-sticky-label">NPR --</strong><button type="button" id="checkout-sticky-button" class="primary-action">Pay securely</button></div><div id="remove-confirm" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="remove-confirm-title"><div class="confirm-dialog"><h3 id="remove-confirm-title">Remove this activity?</h3><p>This optional activity will be removed from your booking.</p><div class="confirm-actions"><button type="button" id="remove-cancel" class="btn btn-outline">Keep it</button><button type="button" id="remove-confirm-action" class="primary-action" style="width:auto">Remove</button></div></div></div><main class="checkout-page">
   <header class="checkout-header"><img class="brand-logo" src="${siteInfo.logoUrl}" alt="${siteInfo.siteName}"><div class="secure-note"><strong>Secure checkout</strong><span>Secured by Cybersource · Powered by Visa</span></div></header>
   <section class="checkout-intro"><p class="eyebrow">Your reservation</p><h1>Complete your booking</h1><p>Review your selection and enter your details below.</p></section>
   <div class="checkout-layout"><section class="checkout-card review-card">
@@ -227,17 +238,14 @@ export function renderCheckoutPage(url) {
   <h3>Your selection</h3><div id="cart" class="cart-list">Loading your selection...</div>
   <div id="deposit-options" style="display:none"></div>
 
-  <h3>Guest information</h3><div class="form-grid">
-  <div class="form-group"><label for="bill-first">First name</label><input id="bill-first" placeholder="First name"></div>
-  <div class="form-group"><label for="bill-last">Last name</label><input id="bill-last" placeholder="Last name"></div></div>
-  <div class="form-group"><label for="bill-email">Email address</label><input id="bill-email" placeholder="you@example.com" type="email"></div>
-  <div class="form-group"><label for="bill-phone">Phone number</label><input id="bill-phone" placeholder="Phone number" type="tel"></div>
-  <div class="form-group"><label for="guest-notes">Notes or remarks</label><textarea id="guest-notes" rows="3" placeholder="Anything we should know?"></textarea></div>
-  <h3>Billing address</h3><div class="form-grid"><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
-  <div class="form-group"><label for="bill-city">City</label><input id="bill-city" placeholder="City"></div></div>
-  <div class="form-grid"><div class="form-group"><label for="bill-state">State / province</label><input id="bill-state" placeholder="State or province"></div>
-  <div class="form-group"><label for="bill-zip">Postal code</label><input id="bill-zip" placeholder="Postal code"></div></div>
-  <div class="form-group"><label for="bill-country">Country</label><input id="bill-country" placeholder="Country" value="Nepal"></div>
+  <h3>Guest information</h3><p class="field-note">Fields marked with * are required.</p><div class="form-grid">
+  <div class="form-group"><label for="bill-first">First name *</label><input id="bill-first" required placeholder="First name"></div>
+  <div class="form-group"><label for="bill-last">Last name *</label><input id="bill-last" required placeholder="Last name"></div></div>
+  <div class="form-group"><label for="bill-email">Email address *</label><input id="bill-email" required placeholder="you@example.com" type="email"></div>
+  <div class="form-group"><label for="bill-phone">Phone number *</label><div class="phone-row"><input id="bill-phone" required placeholder="+977123456789" type="tel" inputmode="tel" pattern="\+[0-9]{7,18}"></div></div>
+  <div class="form-group"><label for="guest-notes">Notes or remarks *</label><textarea id="guest-notes" required rows="3" placeholder="Anything we should know?"></textarea></div>
+  <h3>Billing address</h3><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
+  <div class="billing-compact-row"><div class="form-group"><label for="bill-city">City</label><input id="bill-city" placeholder="City"></div><div class="form-group"><label for="bill-state">State / province</label><input id="bill-state" placeholder="State / province"></div><div class="form-group"><label for="bill-zip">Postal code</label><input id="bill-zip" placeholder="Postal code"></div><div class="form-group"><label for="bill-country">Country *</label><input id="bill-country" required placeholder="Country"></div></div>
 
   <h3>Payment options</h3><div class="payment-choice">
     <label><input type="radio" name="pay" value="deposit" checked> <span>Pay 30% deposit: $<span id="dep-amt-copy"></span></span></label>
@@ -280,6 +288,21 @@ export function renderCheckoutPage(url) {
       checkin: params.get('checkin') || '', checkout: params.get('checkout') || '',
       adults: Number(params.get('adults')) || 1, children: Number(params.get('children')) || 0
     };
+    const paymentSection = document.querySelector('.card-number-row');
+    const stickyPayBar = document.getElementById('checkout-sticky-pay');
+    const stickyPayButton = document.getElementById('checkout-sticky-button');
+    const payButton = document.getElementById('pay-btn');
+    const updateStickyPay = () => {
+      if (!paymentSection || !stickyPayBar) return;
+      const hidden = paymentSection.getBoundingClientRect().top > window.innerHeight || paymentSection.getBoundingClientRect().bottom < 0;
+      stickyPayBar.classList.toggle('is-visible', hidden && !payButton.disabled);
+    };
+    window.addEventListener('scroll', updateStickyPay, { passive: true });
+    window.addEventListener('resize', updateStickyPay, { passive: true });
+    if (stickyPayButton) stickyPayButton.addEventListener('click', () => {
+      paymentSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      payButton?.focus({ preventScroll: true });
+    });
     let quote, sessionInfo, microform;
 
     function loadMicroformScript(clientLibrary, clientLibraryIntegrity) {
@@ -358,7 +381,10 @@ export function renderCheckoutPage(url) {
             const converted = selected.iso3 === 'NPR' ? nprTotal : nprTotal / nprPerSelectedUnit;
             document.getElementById('npr-rate').textContent = 'USD 1 = NPR ' + Number(forex.rate).toFixed(2);
             document.getElementById('npr-total').textContent = 'NPR ' + nprTotal.toFixed(2);
-           document.getElementById('pay-button-label').textContent = 'Pay securely · NPR ' + nprTotal.toFixed(2);
+         const payableLabel = 'Pay securely · NPR ' + nprTotal.toFixed(2);
+         document.getElementById('pay-button-label').textContent = payableLabel;
+         document.getElementById('checkout-sticky-label').textContent = 'NPR ' + nprTotal.toFixed(2);
+         document.getElementById('checkout-sticky-button').textContent = 'Pay securely';
            document.getElementById('pay-button-label').dataset.payableNprRate = String(forex.rate);
             document.getElementById('local-total-label').textContent = selected.iso3 + ' total';
             document.getElementById('local-total').textContent = selected.iso3 + ' ' + converted.toFixed(2);
@@ -368,6 +394,8 @@ export function renderCheckoutPage(url) {
           updateLocalTotal();
           document.getElementById('exchange-source').innerHTML = (forex.fallback ? 'Source: Fallback rate shown; live NRB rate unavailable.' : 'Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a>') + '<br>Rate date: ' + (forex.date || '--');
         }).catch(() => { document.getElementById('exchange-source').textContent = 'Source: Nepal Rastra Bank · rate unavailable.'; });
+        document.getElementById('card-number').innerHTML = '<div class="session-loading">Preparing secure card fields...</div>';
+        document.getElementById('security-code').innerHTML = '<div class="session-loading">Loading...</div>';
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -394,11 +422,50 @@ export function renderCheckoutPage(url) {
           microform.createField('number', { placeholder: 'Card number' }).load('#card-number');
           microform.createField('securityCode', { placeholder: 'CVV' }).load('#security-code');
           document.getElementById('pay-btn').disabled = false;
+          updateStickyPay();
         });
       })
       .catch(e => { document.getElementById('msg').textContent = 'Setup error: ' + e.message; console.error(e); });
 
+    function validateCheckoutFields() {
+      const fields = [
+        ['bill-first', value => /^[A-Za-z][A-Za-z .'-]*$/.test(value.trim()), 'Enter a valid first name.'],
+        ['bill-last', value => /^[A-Za-z][A-Za-z .'-]*$/.test(value.trim()), 'Enter a valid last name.'],
+        ['bill-email', value => /^[^ @]+@[^ @]+[.][^ @]+$/.test(value.trim()), 'Enter a valid email address.'],
+        ['bill-phone', value => /^[+][0-9]{7,18}$/.test(value.trim()), 'Phone number must start with + and contain digits only.'],
+        ['guest-notes', value => value.trim().length > 0, 'Add a note or remark.'],
+        ['bill-address', value => value.trim().length > 0, 'Enter your address.'],
+        ['bill-city', value => value.trim().length > 0, 'Enter your city.'],
+        ['bill-state', value => value.trim().length > 0, 'Enter your state or province.'],
+        ['bill-zip', value => value.trim().length > 0, 'Enter your postal code.'],
+        ['bill-country', value => value.trim().length > 0, 'Select your country.'],
+      ];
+      for (const [id, check, message] of fields) {
+        const field = document.getElementById(id);
+        const oldError = field.parentElement.querySelector('.field-error');
+        if (oldError) oldError.remove();
+        if (!check(field.value)) {
+          const error = document.createElement('span'); error.className = 'field-error'; error.textContent = message; field.parentElement.appendChild(error);
+          field.scrollIntoView({ behavior: 'smooth', block: 'center' }); field.focus(); return false;
+        }
+      }
+      if (!microform) { paymentSection?.scrollIntoView({ behavior: 'smooth', block: 'center' }); document.getElementById('msg').textContent = 'Secure card fields are still loading.'; return false; }
+      return true;
+    }
+    document.querySelectorAll('#bill-first,#bill-last,#bill-email,#phone-country-code,#bill-phone,#guest-notes,#bill-address,#bill-city,#bill-state,#bill-zip,#bill-country').forEach((field) => {
+      field.addEventListener('input', () => {
+        const error = field.parentElement.querySelector('.field-error');
+        if (error && field.value.trim()) error.remove();
+        if (field.id === 'bill-phone') field.value = field.value.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '').slice(0, 19);
+      });
+      field.addEventListener('blur', () => {
+        if (!field.value.trim() && !field.parentElement.querySelector('.field-error')) {
+          const error = document.createElement('span'); error.className = 'field-error'; error.textContent = field.labels?.[0]?.textContent.replace(' *', '') + ' is required.'; field.parentElement.appendChild(error);
+        }
+      });
+    });
     document.getElementById('pay-btn').addEventListener('click', () => {
+      if (!validateCheckoutFields()) return;
       const currency = document.getElementById('currency') ? document.getElementById('currency').value : 'USD';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
       const amount = payAmount === 'full' ? quote.deposits.full : quote.deposits.deposit;
