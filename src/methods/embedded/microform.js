@@ -151,6 +151,20 @@ export function renderCheckoutPage(url) {
   .primary-action { width: 100%; border: 0; border-radius: 11px; background: var(--accent); color: #fff; padding: 14px 18px; font-weight: 700; box-shadow: 0 8px 18px rgba(184,92,56,.22); transition: background .2s, transform .2s; }
   .primary-action:hover { background: var(--accent-hover); transform: translateY(-1px); }
   .summary-card { position: sticky; top: 20px; }
+  .review-card { min-width: 0; }
+  .review-card h2, .summary-card h2 { letter-spacing: -.02em; }
+  .stay-overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 0 0 24px; }
+  .stay-stat { padding: 12px; border-radius: 12px; background: rgba(255,255,255,.58); border: 1px solid var(--line); }
+  .stay-stat small { display: block; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  .stay-stat strong { color: var(--ink); font-size: .84rem; }
+  .summary-lines { display: grid; gap: 11px; margin: 0 0 18px; }
+  .summary-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .82rem; }
+  .summary-line strong { color: var(--ink); text-align: right; }
+  .summary-line small { display: block; color: var(--text-muted); font-size: .7rem; margin-top: 2px; }
+  .currency-box { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.52); margin: 16px 0; }
+  .currency-box p { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.45; }
+  .currency-box strong { color: var(--ink); }
+  .npr-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; color: var(--accent); font-size: 1.16rem; font-weight: 700; }
   .summary-card h2 { margin-bottom: 16px; }
   .summary-copy { color: var(--muted); font-size: .88rem; line-height: 1.55; margin: 0 0 20px; }
   .summary-rule { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
@@ -165,8 +179,9 @@ export function renderCheckoutPage(url) {
 <body><main class="checkout-page">
   <header class="checkout-header"><div class="brand">Krishna Sharma</div><div class="secure-note"><span>●</span> Secure checkout</div></header>
   <section class="checkout-intro"><p class="eyebrow">Your reservation</p><h1>Complete your booking</h1><p>Review your selection and enter your details below. Your payment is processed securely.</p></section>
-  <div class="checkout-layout"><section class="checkout-card">
-  <h2>Booking details</h2>
+  <div class="checkout-layout"><section class="checkout-card review-card">
+  <h2>Review your booking</h2>
+  <div class="stay-overview"><div class="stay-stat"><small>Check-in</small><strong id="review-checkin">Select date</strong></div><div class="stay-stat"><small>Check-out</small><strong id="review-checkout">Select date</strong></div><div class="stay-stat"><small>Duration</small><strong id="review-nights">0 nights</strong></div></div>
   <h3>Your selection</h3><div id="cart" class="cart-list">Loading your selection...</div>
   <div id="deposit-options" style="display:none"><span id="dep-amt"></span><span id="full-amt"></span></div>
 
@@ -214,7 +229,7 @@ export function renderCheckoutPage(url) {
     <form id="microform-stepup-form" target="microform-stepup-iframe" method="POST" style="display:none;">
       <input type="hidden" name="JWT" id="microform-stepup-jwt">
     </form>
-  </div></section><aside class="checkout-card summary-card"><h2>Order summary</h2><p class="summary-copy">Your reservation details and payment amount are shown here before you continue.</p><div class="trust-item"><b>✓</b><span>Secure payment processing</span></div><div class="trust-item"><b>✓</b><span>Your details are kept private</span></div><div class="trust-item"><b>✓</b><span>Instant booking confirmation</span></div><hr class="summary-rule"><p class="summary-copy">Questions about your reservation? Contact us before completing payment.</p></aside></div>
+  </div></section><aside class="checkout-card summary-card"><h2>Booking summary</h2><div class="summary-lines"><div class="summary-line"><span>Check-in</span><strong id="summary-checkin">Select date</strong></div><div class="summary-line"><span>Check-out</span><strong id="summary-checkout">Select date</strong></div><div class="summary-line"><span>Guests</span><strong id="summary-guests">1 adult</strong></div><div class="summary-line"><span>Nights</span><strong id="summary-summary-nights">0 nights</strong></div></div><hr class="summary-rule"><div class="summary-lines" id="summary-line-items"></div><div class="cart-total"><span>Total USD</span><strong id="cart-total">$0</strong></div><div class="currency-box"><p>Indicative local-currency conversion</p><p><strong id="exchange-rate">USD 1 = NPR --</strong></p><div class="npr-total"><span>Estimated NPR</span><strong id="npr-total">NPR --</strong></div><p id="exchange-source">Fetching latest available rate...</p></div><div class="trust-item"><b>✓</b><span>Secure payment processing</span></div><div class="trust-item"><b>✓</b><span>Your details are kept private</span></div><div class="trust-item"><b>✓</b><span>Instant booking confirmation</span></div><hr class="summary-rule"><p class="summary-copy">Payment is currently submitted in USD. NPR is shown as an estimate based on the latest available exchange rate.</p></aside></div>
 </main>
   <script>
     const params = new URLSearchParams(location.search);
@@ -246,14 +261,31 @@ export function renderCheckoutPage(url) {
       .then(r => r.json())
       .then(q => {
         quote = q;
+        const nights = quoteOptions.checkin && quoteOptions.checkout
+          ? Math.max(0, Math.round((new Date(quoteOptions.checkout + 'T00:00:00') - new Date(quoteOptions.checkin + 'T00:00:00')) / 86400000))
+          : 0;
+        const formatDate = (value) => value ? new Date(value + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Select date';
+        document.getElementById('review-checkin').textContent = formatDate(quoteOptions.checkin);
+        document.getElementById('review-checkout').textContent = formatDate(quoteOptions.checkout);
+        document.getElementById('review-nights').textContent = nights + ' night' + (nights === 1 ? '' : 's');
+        document.getElementById('summary-checkin').textContent = formatDate(quoteOptions.checkin);
+        document.getElementById('summary-checkout').textContent = formatDate(quoteOptions.checkout);
+        document.getElementById('summary-guests').textContent = quoteOptions.adults + ' adult' + (quoteOptions.adults === 1 ? '' : 's') + (quoteOptions.children ? ' · ' + quoteOptions.children + ' children' : '');
+        document.getElementById('summary-summary-nights').textContent = nights + ' night' + (nights === 1 ? '' : 's');
          document.getElementById('cart').innerHTML =
-           q.items.map(i => '<div class="cart-line"><div><strong>' + i.name + '</strong><small>Reservation item</small></div><span>$' + i.price + '</span></div>').join('') +
-           '<div class="cart-total"><span>Total</span><strong id="cart-total">$' + q.total + '</strong></div>';
+           q.items.map(i => '<div class="cart-line"><div><strong>' + i.name + '</strong><small>' + (i.quantity || 1) + ' guest' + ((i.quantity || 1) === 1 ? '' : 's') + (i.nights ? ' · ' + i.nights + ' nights' : '') + '</small></div><span>$' + i.total + '</span></div>').join('') +
+           '<div class="cart-total"><span>Total</span><strong id="review-total">$' + q.total + '</strong></div>';
+         document.getElementById('summary-line-items').innerHTML = q.items.map(i => '<div class="summary-line"><span>' + i.name + '<small>' + (i.quantity || 1) + ' × $' + i.price + (i.nights ? ' · ' + i.nights + ' nights' : '') + '</small></span><strong>$' + i.total + '</strong></div>').join('');
          document.getElementById('dep-amt').textContent = q.deposits.deposit;
          document.getElementById('full-amt').textContent = q.deposits.full;
          document.getElementById('dep-amt-copy').textContent = q.deposits.deposit;
          document.getElementById('full-amt-copy').textContent = q.deposits.full;
         document.getElementById('deposit-options').style.display = 'block';
+        fetch('/api/forex').then((response) => response.json()).then((forex) => {
+          document.getElementById('exchange-rate').textContent = 'USD 1 = NPR ' + Number(forex.rate).toFixed(2);
+          document.getElementById('npr-total').textContent = 'NPR ' + (Number(q.total) * Number(forex.rate)).toFixed(2);
+          document.getElementById('exchange-source').textContent = forex.fallback ? 'Fallback rate shown; live NRB rate unavailable.' : 'Latest rate fetched from configured NRB provider.';
+        }).catch(() => { document.getElementById('exchange-source').textContent = 'Exchange rate unavailable; USD remains the payable currency.'; });
         return fetch('/api/microform/session', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
