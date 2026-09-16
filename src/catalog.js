@@ -5,7 +5,7 @@
 // Catalog prices defined here; new SKUs synchronized with src/config.js rooms array.
 // For full customization (prices, descriptions, SKUs), edit src/config.js and reload the module.
 // The embedded config module (src/config.js) is the single source of truth — site-config.json has been removed.
-import { packages, rooms } from "./config.js";
+import { packages, rooms, activities } from "./config.js";
 
 export const CATALOG = {
   "room-single": { name: "Single Room", price: 50, type: "room" },
@@ -26,6 +26,7 @@ export const CATALOG = {
 
 const PACKAGE_CATALOG = Object.fromEntries(packages.map((pkg) => [pkg.slug, pkg]));
 const ROOM_CATALOG = Object.fromEntries(rooms.map((room) => [room.slug, room]));
+const ACTIVITY_CATALOG = Object.fromEntries(activities.map((activity) => [activity.slug, activity]));
 for (const room of rooms) {
   CATALOG[room.slug] = { name: room.name, price: Number(room.pricePerNight) || 0, type: "room" };
 }
@@ -36,6 +37,15 @@ export function getPackageFromSku(sku) {
   const pkg = PACKAGE_CATALOG[slug];
   if (!pkg) return null;
   return { pkg, plan: plan === "full" ? "full" : "bb" };
+}
+
+export function getActivityFromSku(sku) {
+  if (!sku || !sku.startsWith("act|")) return null;
+  const [, slug, durationIndex = "0"] = sku.split("|");
+  const activity = ACTIVITY_CATALOG[slug];
+  const index = Number(durationIndex);
+  if (!activity || !Number.isInteger(index) || !activity.durations[index]) return null;
+  return { activity, duration: activity.durations[index], durationIndex: index };
 }
 
 function numericPrice(value) {
@@ -56,6 +66,15 @@ export function priceCart(skus, options = {}) {
       const adultPrice = numericPrice(plan === "full" ? pkg.fullBoard : pkg.bb);
       const lineTotal = round2(adultPrice * adults + adultPrice * 0.4 * children);
       items.push({ sku, name: pkg.name + " (" + (plan === "full" ? "Full Board" : "B&B") + ")", price: adultPrice, quantity: adults, children, nights: pkg.nights, total: lineTotal, type: "package" });
+      total += lineTotal;
+      continue;
+    }
+    if (sku.startsWith("act|")) {
+      const parsed = getActivityFromSku(sku);
+      if (!parsed) continue;
+      const { activity, duration } = parsed;
+      const lineTotal = round2(numericPrice(duration.price) * adults);
+      items.push({ sku, name: activity.name + " (" + duration.label + ")", price: numericPrice(duration.price), quantity: adults, total: lineTotal, type: "activity", duration: duration.label });
       total += lineTotal;
       continue;
     }

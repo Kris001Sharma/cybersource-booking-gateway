@@ -42,9 +42,10 @@ export function renderPage(url) {
 ${injectThemeCSS()}
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--cream); color: var(--text-primary); font-family: "DM Sans", system-ui, sans-serif; }
-body { background: var(--cream) url('${contentBackgroundUrl}') center top / 720px auto fixed no-repeat; }
+body { position: relative; background: var(--cream); }
+body::after { content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none; background: url('${contentBackgroundUrl}') center / 720px auto no-repeat; opacity: .22; }
 h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
-.container { position: relative; max-width: 1120px; margin: 0 auto; padding: 32px 20px; background: rgba(250,247,242,.82); }
+.container { position: relative; max-width: 1120px; margin: 0 auto; padding: 32px 20px; background: rgba(250,247,242,.68); }
 .hero-shell { width: 100%; padding: 0; overflow: hidden; background: var(--cream); }
 .hero { position: relative; width: 100%; min-height: 680px; text-align: center; padding: 30px 20px 112px; overflow: hidden; background: url('${bgUrl}') center top/cover no-repeat; color: #fff; display: flex; flex-direction: column; align-items: center; }
 .hero::before { content: ''; position: absolute; inset: 0; background: linear-gradient(rgba(44,36,31,0.28), rgba(44,36,31,0.52)); z-index: 0; pointer-events: none; }
@@ -99,6 +100,9 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
 .cart-item { display: inline-flex; align-items: center; background: var(--accent-light); padding: 5px 9px; border-radius: var(--radius-sm); color: var(--text-primary); font-size: .78rem; }
 .cart-item strong, .cart-item small { display: block; }
 .cart-item small { color: var(--text-secondary); font-size: .68rem; margin-top: 2px; }
+.cart-item-remove { border: 0; background: transparent; color: var(--error); cursor: pointer; font-size: 1rem; line-height: 1; margin-left: 8px; padding: 2px; }
+.cart-item-remove:hover { color: var(--accent); }
+.landing-footer { margin: 40px 0 150px; padding: 28px 20px; border-top: 1px solid rgba(44,36,31,.12); color: var(--text-muted); text-align: center; font-size: .78rem; }
 .cart-item a { color: var(--error); text-decoration: none; font-weight: 700; margin-left: 5px; }
 .cart-meta { color: var(--text-secondary); font-size: .84rem; margin-top: 5px; }
 .cart-total { color: var(--accent); font-size: 1.05rem; font-weight: 700; }
@@ -190,6 +194,43 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
 .activity-section { margin-top: 60px; }
 .activity-section h2 { font-size: 1.8rem; margin-bottom: 6px; }
 .activity-section p.subtitle { color: var(--text-secondary); margin-bottom: 20px; }
+.compact-card { flex: 0 0 280px; min-width: 260px; height: 280px; scroll-snap-align: start; background: #332923; }
+.compact-card .card-img-wrap { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
+.compact-card .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.compact-card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(44,36,31,.84), rgba(44,36,31,.08) 72%); pointer-events: none; }
+.compact-card .compact-content { position: absolute; inset: auto 16px 15px; z-index: 2; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.45); }
+.compact-card h3 { color: #fff; font-size: 1.15rem; margin: 0 0 5px; }
+.compact-card .compact-price { color: #ffe0d2; font-size: .85rem; font-weight: 600; }
+.compact-card .compact-detail { position: absolute; inset: auto 0 0; z-index: 3; display: flex; flex-direction: column; justify-content: flex-end; min-height: 58%; padding: 18px 16px 15px; color: #fff; background: linear-gradient(to top, rgba(35,25,20,.98), rgba(57,39,30,.84)); transform: translateY(101%); transition: transform .28s ease; }
+.compact-card:hover .compact-detail, .compact-card.active .compact-detail { transform: translateY(0); }
+.compact-card .compact-detail p { color: rgba(255,255,255,.85); font-size: .76rem; line-height: 1.4; margin: 0 0 10px; }
+.compact-card .compact-detail .btn { width: 100%; padding: 9px; font-size: .8rem; }
+.compact-card .duration-options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.compact-card .duration-option { color: #fff; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); border-radius: 6px; padding: 5px 7px; font-size: .7rem; cursor: pointer; }
+.compact-card .duration-option small { display: block; margin-top: 2px; font-size: .64rem; opacity: .8; }
+.compact-card .duration-option.selected { background: var(--accent); border-color: #fff; }
+.compact-card .compact-detail h3 { color: #fff; margin: 0 0 5px; font-size: 1.05rem; }
+.compact-card .compact-detail .compact-price { color: #ffe0d2; margin-bottom: 7px; }
+.compact-card .compact-detail .btn:disabled { opacity: .5; cursor: not-allowed; }
+.compact-card.selected { border-color: #fff; box-shadow: 0 0 0 3px rgba(184,92,56,.65), 0 16px 42px rgba(44,36,31,.24); }
+.compact-card { flex: 0 0 280px; min-width: 260px; height: 280px; scroll-snap-align: start; background: #332923; }
+.compact-card .card-img-wrap { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; }
+.compact-card .card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.compact-card .card-img-wrap::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(44,36,31,.84), rgba(44,36,31,.08) 72%); pointer-events: none; }
+.compact-card .compact-content { position: absolute; inset: auto 16px 15px; z-index: 2; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.45); }
+.compact-card h3 { color: #fff; font-size: 1.15rem; margin: 0 0 5px; }
+.compact-card .compact-price { color: #ffe0d2; font-size: .85rem; font-weight: 600; }
+.compact-card .compact-detail { position: absolute; inset: auto 0 0; z-index: 3; display: flex; flex-direction: column; justify-content: flex-end; min-height: 58%; padding: 18px 16px 15px; color: #fff; background: linear-gradient(to top, rgba(35,25,20,.98), rgba(57,39,30,.84)); transform: translateY(101%); transition: transform .28s ease; }
+.compact-card:hover .compact-detail, .compact-card.active .compact-detail { transform: translateY(0); }
+.compact-card .compact-detail p { color: rgba(255,255,255,.85); font-size: .76rem; line-height: 1.4; margin: 0 0 10px; }
+.compact-card .compact-detail .btn { width: 100%; padding: 9px; font-size: .8rem; }
+.compact-card .duration-options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.compact-card .duration-option { color: #fff; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.1); border-radius: 6px; padding: 5px 7px; font-size: .7rem; cursor: pointer; }
+.compact-card .duration-option small { display: block; margin-top: 2px; font-size: .64rem; opacity: .8; }
+.compact-card .duration-option.selected { background: var(--accent); border-color: #fff; }
+.compact-card .compact-detail h3 { color: #fff; margin: 0 0 5px; font-size: 1.05rem; }
+.compact-card .compact-detail .compact-price { color: #ffe0d2; margin-bottom: 7px; }
+.compact-card .compact-detail .btn:disabled { opacity: .5; cursor: not-allowed; }
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -335,6 +376,12 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     </div>
   </section>
 
+  <section id="add-on-section" class="activity-section" aria-label="Suggested Add-Ons" style="display:none;">
+    <h2>Suggested Add-Ons</h2>
+    <p class="subtitle">Experiences selected to complement your stay.</p>
+    <div id="add-on-grid" class="catalog-grid" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:24px;padding:4px 4px 12px;scrollbar-width:none;-ms-overflow-style:none;"></div>
+  </section>
+
   <section class="activity-section" aria-label="Activities">
     <h2>À la carte activities</h2>
     <p class="subtitle">Add individual experiences — durations shown for display only. The base SKU is used for pricing.</p>
@@ -345,6 +392,7 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
     </div>
   </section>
 
+  <footer class="landing-footer">Sapana Village · Thoughtful stays, restorative experiences.</footer>
   <div class="cart-footer" id="cart-footer" style="display:none;">
     <div class="cart-footer-content">
       <div id="cart-items-list" class="cart-items-list"></div>
@@ -387,6 +435,8 @@ h1, h2, h3 { font-family: "DM Sans", system-ui, sans-serif; margin: 0; }
   function buildPackageCard(key, pkg) {
     const card = document.createElement('div');
     card.className = 'card package-card';
+    const packageCart = getCart().find((item) => item.startsWith('pkg|' + key + '|'));
+    if (packageCart) card.classList.add('selected');
     card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
     const includesHtml = (pkg.includes || []).map(i => '<li>' + i + '</li>').join('');
     const imgUrl = pkg.imageUrl || pkg.image || 'https://res.cloudinary.com/devkrish/image/upload/v1789488378/graffity_1_zs5njm.png';
@@ -450,7 +500,8 @@ card.querySelectorAll('.price-opt').forEach((option) => {
   }
   function getSuggestedAddOns() {
     const included = getIncludedSkus();
-    const includedActivities = included.filter(s => ACTIVITIES[s]);
+    if (included.some((sku) => sku.startsWith('pkg|'))) return [];
+    const includedActivities = included.map((sku) => sku.startsWith('act|') ? sku.split('|')[1] : sku).filter((sku) => ACTIVITIES[sku]);
     const allActivityKeys = Object.keys(ACTIVITIES);
     const notIncluded = allActivityKeys.filter(k => !includedActivities.includes(k));
     // Suggest up to 2 additional activities not already in cart
@@ -458,44 +509,20 @@ card.querySelectorAll('.price-opt').forEach((option) => {
   }
   function renderAddOns() {
     // Hide suggested add-ons until dates or a room type is selected
-    const datesSelected = selectedCheckin && selectedCheckout;
     const roomsSelected = getCart().some(s => s.startsWith('room-'));
     let container = document.getElementById('add-on-section');
-    if (!datesSelected && !roomsSelected) {
+    if (!roomsSelected) {
       if (container) container.style.display = 'none';
       return;
     }
     if (container) container.style.display = '';
     const suggestions = getSuggestedAddOns();
-    if (!container) {
-      container = document.createElement('section');
-      container.id = 'add-on-section';
-      container.className = 'activity-section';
-      container.innerHTML = '<h2>Suggested Add-Ons</h2><p class="subtitle">Based on your selection, these experiences pair well with your stay.</p><div id="add-on-grid" class="catalog-grid"></div>';
-      const footer = document.getElementById('cart-footer');
-      if (footer && footer.parentElement) footer.parentElement.insertBefore(container, footer);
-    }
     const grid = document.getElementById('add-on-grid'); grid.innerHTML = '';
     if (!suggestions.length) {
       grid.innerHTML = '<div class="empty-state">No suggestions right now — add more packages to see recommendations.</div>';
       return;
     }
-    for (const key of suggestions) {
-      const act = ACTIVITIES[key];
-      if (!act) continue;
-      const card = document.createElement('div');
-      card.className = 'card';
-      const variantsHtml = act.durations.map(v => '<span style="display:inline-block;padding:4px 8px;background:var(--warm-gray);border-radius:var(--radius-sm);margin-right:6px;font-size:0.8rem;font-weight:500;">' + v.label + '</span>').join('');
-      const actImgUrl = act.imageUrl || act.image || '';
-      const actImgDisplay = actImgUrl ? '<img src="' + actImgUrl + '" alt="' + act.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (act.name || 'Image') + '</div>';
-      card.innerHTML = actImgDisplay + '<h3>' + act.name + '</h3><div style="margin-bottom:10px;">' + variantsHtml + '</div>';
-      const btn2 = document.createElement('button');
-      btn2.className = 'btn btn-outline';
-      btn2.textContent = 'Add activity';
-      btn2.addEventListener('click', () => addActivity(key));
-      card.appendChild(btn2);
-      grid.appendChild(card);
-    }
+    for (const key of suggestions) grid.appendChild(buildActivityCard(key, ACTIVITIES[key]));
   }
   function selectPricing(btn, fb, bb) {
     const parent = btn.parentElement;
@@ -592,17 +619,42 @@ card.querySelectorAll('.price-opt').forEach((option) => {
       card.querySelector('.card-details').addEventListener('click', (innerEvent) => innerEvent.stopPropagation());
     }
     await updateCartUI();
+    renderAddOns();
   }
-  async function addActivity(key) {
+  async function addActivity(key, durationIndex = '0') {
     const current = new URLSearchParams(window.location.search).get("items") || "";
     const items = current ? current.split(",").filter(Boolean) : [];
-    if (!items.includes(key)) items.push(key);
+    const activitySku = 'act|' + key + '|' + durationIndex;
+    const filteredItems = items.filter((item) => !item.startsWith('act|' + key + '|') && item !== key);
+    filteredItems.push(activitySku);
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.search);
-    params.set("items", items.join(","));
+    params.set("items", filteredItems.join(","));
     url.search = params.toString();
     window.history.replaceState({}, "", url.toString());
     await updateCartUI();
+    renderAddOns();
+  }
+  function buildActivityCard(key, act) {
+    const card = document.createElement('div');
+    card.className = 'card compact-card';
+    const actImgUrl = act.imageUrl || act.image || '${contentBackgroundUrl}';
+    const activityCart = getCart().find((item) => item.startsWith('act|' + key + '|'));
+    if (activityCart) card.classList.add('selected');
+    const durationsHtml = (act.durations || []).map((v, index) => '<button type="button" class="duration-option' + (activityCart?.endsWith('|' + index) ? ' selected' : '') + '" data-duration-index="' + index + '" data-price="' + v.price + '">' + v.label + '<small>$' + v.price + ' / person</small></button>').join('');
+    card.innerHTML = '<div class="card-img-wrap"><img src="' + actImgUrl + '" alt="' + act.name + '"></div><div class="compact-content"><h3>' + act.name + '</h3><div class="compact-price">From $' + ((act.durations || [])[0]?.price || 0) + ' / person</div></div><div class="compact-detail"><h3>' + act.name + '</h3><p>Choose the duration that suits your stay.</p><div class="duration-options">' + durationsHtml + '</div><button class="btn" type="button" ' + (activityCart ? '' : 'disabled') + '>' + (activityCart ? 'Added to cart' : 'Add activity') + '</button></div>';
+    card.addEventListener('click', (event) => { if (!event.target.closest('button')) card.classList.toggle('active'); });
+    card.querySelectorAll('.duration-option').forEach((option) => option.addEventListener('click', (event) => {
+      event.stopPropagation();
+      card.querySelectorAll('.duration-option').forEach((button) => button.classList.remove('selected'));
+      option.classList.add('selected');
+      card.classList.add('selected');
+      const addButton = card.querySelector('.compact-detail > .btn');
+      addButton.disabled = false;
+      addButton.textContent = 'Add activity';
+      addButton.onclick = () => addActivity(key, option.dataset.durationIndex);
+    }));
+    return card;
   }
   function getCart() {
     const params = new URLSearchParams(window.location.search);
@@ -637,11 +689,6 @@ card.querySelectorAll('.price-opt').forEach((option) => {
         adults: String(guests.adults),
         children: String(guests.children),
       });
-      const defaultPrice = card.querySelector('.price-opt[data-plan="bb"]');
-      if (defaultPrice) {
-        defaultPrice.classList.add('selected');
-        defaultPrice.setAttribute('data-selected-price', defaultPrice.getAttribute('data-price'));
-      }
       const resp = await fetch('/api/quote?' + quoteParams.toString());
       const data = await resp.json();
       document.getElementById("cart-total").textContent = "$" + data.total;
@@ -650,10 +697,10 @@ card.querySelectorAll('.price-opt').forEach((option) => {
         const detail = item.type === 'package'
           ? item.nights + ' nights · $' + item.price + ' / adult'
           : item.nights ? item.nights + ' nights · $' + item.price + ' / night' : '$' + item.price;
-        return '<span data-sku="' + item.sku + '" class="cart-item"><span><strong>' + label + '</strong><small>' + detail + '</small></span><a href="#" aria-label="Remove ' + label + '">×</a></span>';
+        return '<span data-sku="' + item.sku + '" class="cart-item"><span><strong>' + label + '</strong><small>' + detail + (item.total !== undefined ? ' · $' + item.total + ' total' : '') + '</small></span><button type="button" class="cart-item-remove" aria-label="Remove ' + label + '" title="Remove ' + label + '">&#215;</button></span>';
       }).join('');
       // Attach removal listeners after render
-      listEl.querySelectorAll('a').forEach(link => {
+      listEl.querySelectorAll('.cart-item-remove').forEach(link => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           const sku = link.closest('.cart-item').getAttribute('data-sku');
@@ -668,17 +715,22 @@ card.querySelectorAll('.price-opt').forEach((option) => {
   async function clearCart(e) {
     if (e) e.preventDefault();
     setCart([]);
-    document.querySelectorAll('.package-card.selected').forEach((card) => {
-      card.classList.remove('selected');
-      const btnEl = card.querySelector('.btn');
-      if (btnEl) btnEl.textContent = 'Select package';
-    });
+    renderPackages();
+    renderSignaturePackages();
+    renderRooms();
+    renderActivities();
+    renderAddOns();
     await updateCartUI();
   }
   async function removeItem(sku, e) {
     if (e) e.preventDefault();
     const current = getCart();
     setCart(current.filter(s => s !== sku));
+    renderPackages();
+    renderSignaturePackages();
+    renderRooms();
+    renderActivities();
+    renderAddOns();
     await updateCartUI();
   }
   function goCheckout(e) {
@@ -893,16 +945,14 @@ card.querySelectorAll('.price-opt').forEach((option) => {
     let displayRooms = featured.concat(others).slice(0, 4);
     for (const [key, r] of displayRooms) {
       const card = document.createElement('div');
-      card.className = 'card';
-      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
-      const shortDesc = (r.description || '').length > 80 ? (r.description || '').substring(0, 80).trim() + '...' : (r.description || '');
       const nights = selectedCheckin && selectedCheckout ? nightsBetween(selectedCheckin, selectedCheckout) : 0;
-      card.innerHTML = '<h3>' + r.name + '</h3><p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.45;">' + shortDesc + '</p><div style="margin-top:8px;font-size:0.85rem;color:var(--text-muted);">Capacity: ' + r.capacity + ' · $' + r.pricePerNight + ' / night' + (nights ? ' · ' + nights + ' nights' : '') + '</div>';
-      const btn = document.createElement('button');
-      btn.className = 'btn btn-outline';
-      btn.textContent = 'Add room';
-      btn.addEventListener('click', () => addRoom(key));
-      card.appendChild(btn);
+      card.className = 'card compact-card';
+      const selected = getCart().includes(key);
+      if (selected) card.classList.add('selected');
+      const image = r.imageUrl || r.image || '${contentBackgroundUrl}';
+      card.innerHTML = '<div class="card-img-wrap"><img src="' + image + '" alt="' + r.name + '"></div><div class="compact-content"><h3>' + r.name + '</h3><div class="compact-price">$' + r.pricePerNight + ' / night · ' + r.capacity + '</div></div><div class="compact-detail"><h3>' + r.name + '</h3><div class="compact-price">$' + r.pricePerNight + ' / night · ' + r.capacity + '</div><p>' + (r.description || '') + '</p><button class="btn" type="button">' + (selected ? 'Added to cart' : 'Add room') + '</button></div>';
+      card.addEventListener('click', (event) => { if (!event.target.closest('button')) card.classList.toggle('active'); });
+      card.querySelector('button').addEventListener('click', (event) => { event.stopPropagation(); addRoom(key); });
       grid.appendChild(card);
     }
   }
@@ -927,21 +977,7 @@ card.querySelectorAll('.price-opt').forEach((option) => {
   function renderActivities() {
     const grid = document.getElementById('activities-grid'); if (!grid) return; grid.innerHTML = '';
     const actEntries = Object.entries(ACTIVITIES || {});
-    for (const [key, act] of actEntries) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.style.cssText = 'flex:0 0 300px;min-width:260px;scroll-snap-align:start;';
-      const durationsHtml = (act.durations || []).map(v => '<span style="display:inline-block;padding:4px 8px;background:var(--warm-gray);border-radius:var(--radius-sm);margin-right:6px;font-size:0.8rem;font-weight:500;">' + v.label + '</span>').join('');
-      const actImgUrl = act.imageUrl || act.image || '';
-      const imgDisplay = actImgUrl ? '<img src="' + actImgUrl + '" alt="' + act.name + '" style="width:100%;height:120px;object-fit:cover;border-radius:var(--radius-md);margin-bottom:16px;">' : '<div class="img-placeholder">' + (act.name || 'Image') + '</div>';
-      card.innerHTML = imgDisplay + '<h3>' + act.name + '</h3><div style="margin-bottom:10px;">' + durationsHtml + '</div>';
-      const btn3 = document.createElement('button');
-      btn3.className = 'btn btn-outline';
-      btn3.textContent = 'Add Activity';
-      btn3.addEventListener('click', () => addActivity(key));
-      card.appendChild(btn3);
-      grid.appendChild(card);
-    }
+    for (const [key, act] of actEntries) grid.appendChild(buildActivityCard(key, act));
   }
   function scrollRooms(dir) {
     const grid = document.getElementById('rooms-grid');
