@@ -91,15 +91,19 @@ export function priceCart(skus, options = {}) {
 
 export function computeDepositOptions(total) {
   let minDeposit;
-  minDeposit = round2(total * 0.3);
+  minDeposit = round4(total * 0.3);
 
-  const pct30 = Math.max(minDeposit, round2(total * 0.3));
+  const pct30 = Math.max(minDeposit, round4(total * 0.3));
   return {
-    deposit: round2(pct30),
-    full: round2(total),
+    deposit: round4(pct30),
+    full: round4(total),
   };
 }
 
 function round2(n) {
   return Math.round(n * 100) / 100;
+}
+
+function round4(n) {
+  return Math.round(n * 10000) / 10000;
 }

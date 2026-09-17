@@ -25,7 +25,7 @@ export async function createSession(request, env) {
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "unified", nights, adults, children });
+  await createBooking(env, { bookingId, items, totalUsd: total, totalNpr: amount, guest, paymentMethod: "unified", nights, adults, children });
 
   const origin = env.CHECKOUT_ORIGIN || new URL(request.url).origin;
   const result = await cybersourceRequest(env, "POST", "/up/v1/sessions", {
@@ -58,9 +58,9 @@ export function renderCheckoutPage(url) {
   </div>
 
   <h3>Billing details</h3>
-  <input id="bill-first" placeholder="First name"><br>
-  <input id="bill-last" placeholder="Last name"><br>
-  <input id="bill-email" placeholder="Email" type="email"><br>
+  <input id="bill-first" required placeholder="First name"><br>
+  <input id="bill-last" required placeholder="Last name"><br>
+  <input id="bill-email" required placeholder="Email" type="email"><br>
   <input id="bill-address" placeholder="Address line 1"><br>
   <input id="bill-city" placeholder="City"><br>
   <input id="bill-state" placeholder="State/Province (e.g. CA)"><br>
@@ -128,7 +128,8 @@ export function renderCheckoutPage(url) {
             guest: {
               firstName: document.getElementById('bill-first').value || 'Guest',
               lastName: document.getElementById('bill-last').value || 'User',
-              email: document.getElementById('bill-email').value || 'guest@example.com'
+              email: document.getElementById('bill-email').value || 'guest@example.com',
+              phone: '', country: document.getElementById('bill-country').value || '', notes: ''
             }
           })
         });

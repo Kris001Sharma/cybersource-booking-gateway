@@ -16,7 +16,7 @@ export async function createLink(request, env, ctx) {
   const amount = payAmount === "full" ? full : deposit;
   const bookingId = crypto.randomUUID();
 
-  const bookingPromise = createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "paylink", nights, adults, children });
+  const bookingPromise = createBooking(env, { bookingId, items, totalUsd: total, totalNpr: amount, guest, paymentMethod: "paylink", nights, adults, children });
   if (ctx?.waitUntil) ctx.waitUntil(bookingPromise);
   else await bookingPromise;
 
@@ -61,8 +61,9 @@ export function renderCheckoutPage(url) {
   </div>
 
   <h3>Your details</h3>
-  <input id="guest-name" placeholder="Full name"><br>
-  <input id="guest-email" placeholder="Email" type="email"><br>
+  <input id="guest-first" required placeholder="First name"><br>
+  <input id="guest-last" required placeholder="Last name"><br>
+  <input id="guest-email" required placeholder="Email" type="email"><br>
   <input id="guest-phone" placeholder="Phone"><br>
 
   <button id="continue-btn" disabled>Continue to payment</button>
@@ -86,17 +87,18 @@ export function renderCheckoutPage(url) {
       });
 
     document.getElementById('continue-btn').addEventListener('click', () => {
-      const name = document.getElementById('guest-name').value;
-      const email = document.getElementById('guest-email').value;
-      const phone = document.getElementById('guest-phone').value;
-      if (!name || !email) { document.getElementById('msg').textContent = 'Name and email are required.'; return; }
+       const firstName = document.getElementById('guest-first').value;
+       const lastName = document.getElementById('guest-last').value;
+       const email = document.getElementById('guest-email').value;
+       const phone = document.getElementById('guest-phone').value;
+       if (!firstName || !lastName || !email) { document.getElementById('msg').textContent = 'First name, last name, and email are required.'; return; }
 
       document.getElementById('continue-btn').disabled = true;
       document.getElementById('msg').textContent = 'Creating your payment link...';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
       fetch('/api/paylink/create', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skus: items.split(','), payAmount, guest: { name, email, phone } })
+         body: JSON.stringify({ skus: items.split(','), payAmount, guest: { firstName, lastName, email, phone, country: '', notes: '' } })
       })
         .then(r => r.json())
         .then(res => {

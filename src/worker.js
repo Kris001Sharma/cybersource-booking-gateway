@@ -1,5 +1,5 @@
 import { priceCart, computeDepositOptions, getPackageFromSku } from "./catalog.js";
-import { updateBookingStatus } from "./bookings.js";
+import { updateBookingStatus, updateBookingGuest } from "./bookings.js";
 import { getUsdNprRate, getLatestForexRates } from "./forex.js";
 import * as microform from "./methods/embedded/microform.js";
 import * as unifiedCheckout from "./methods/embedded/unified-checkout.js";
@@ -32,6 +32,19 @@ export default {
     if (p === "/api/microform/auth-setup" && request.method === "POST") return microform.authSetup(request, env);
     if (p === "/api/microform/check-enrollment" && request.method === "POST") return microform.checkEnrollment(request, env);
     if (p === "/api/microform/session" && request.method === "POST") return microform.createSession(request, env);
+    if (p === "/api/microform/booking-intent" && request.method === "POST") return microform.createBookingIntent(request, env);
+    if (p === "/api/microform/booking-status" && request.method === "GET") {
+      const bookingId = url.searchParams.get("bookingId");
+      if (!bookingId) return json({ error: "bookingId required" }, 400);
+      const booking = await getBooking(env, bookingId);
+      return json({ bookingId, pending: booking?.status === "pending", status: booking?.status || null }, booking ? 200 : 404);
+    }
+    if (p === "/api/microform/booking-guest" && request.method === "POST") {
+      const body = await request.json();
+      if (!body.bookingId || !body.guest) return json({ error: "bookingId and guest required" }, 400);
+      const ok = await updateBookingGuest(env, body);
+      return json({ ok });
+    }
     if (p === "/api/microform/charge" && request.method === "POST") return microform.charge(request, env);
     if (p === "/checkout/microform") return microform.renderCheckoutPage(url);
 
@@ -96,12 +109,10 @@ function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } });
 }
 
-// Polling-based auto-reconciliation was confirmed NOT VIABLE: neither the
-// payment-link status field nor the transaction record carries our
-// purchaseNumber/bookingId back (verified against real completed
-// transactions). Rather than silently do nothing useful, this now reports
-// what's pending so it can be checked manually against Business Center
-// while the webhook subscription is still PENDING_REVIEW.
+// The scheduled reconciliation is a safety and housekeeping job. It reports
+// pending rows for manual Business Center checks, backs up paid rows, and
+// removes expired pending/failed rows. It does not authorize, capture, or
+// verify payments; signed webhooks and the charge path do that.
 async function runReconciliation(env) {
   const listResp = await fetch(env.SHEET_WEBAPP_URL, {
     method: "POST",
@@ -109,8 +120,18 @@ async function runReconciliation(env) {
     body: JSON.stringify({ action: "list_pending" }),
   });
   const { pending } = await listResp.json();
+  const paidArchiveResp = await fetch(env.SHEET_WEBAPP_URL, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "archive_paid" }),
+  });
+  const staleArchiveResp = await fetch(env.SHEET_WEBAPP_URL, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "archive_stale_pending", thresholdMinutes: 30, failedThresholdMinutes: 7 * 24 * 60 }),
+  });
+  const paidArchive = await paidArchiveResp.json();
+  const staleArchive = await staleArchiveResp.json();
   console.log(`[reconcile] ${pending?.length || 0} bookings still pending manual verification in Business Center`);
-  return json({ pendingCount: pending?.length || 0, pending, note: "Auto-verification not possible via API — check Business Center Transaction Search by amount/date/name until webhook is ACTIVE." });
+  return json({ pendingCount: pending?.length || 0, pending, paidArchive, staleArchive, note: "Pending records older than 30 minutes and failed records older than 7 days are removed from the main sheet; paid records remain in the main sheet and are backed up to the admin archive." });
 }
 
 function handleQuote(url) {

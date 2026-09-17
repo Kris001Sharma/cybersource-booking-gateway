@@ -13,17 +13,14 @@ import { setupAuthentication, checkEnrollment as checkPayerEnrollment, validateA
 import { chargeCard } from "./shared-charge.js";
 import { injectThemeCSS } from "../../client/theme.js";
 import { siteInfo } from "../../config.js";
+import { getUsdNprRate } from "../../forex.js";
 
 export async function createSession(request, env) {
-  const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
+  const { skus, payAmount, checkin, checkout, adults, children } = await request.json();
   const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
   const { items, total } = priceCart(skus, { nights, adults, children });
   const { deposit, full } = computeDepositOptions(total);
   const amount = payAmount === "full" ? full : deposit;
-  const bookingId = crypto.randomUUID();
-
-  await createBooking(env, { bookingId, items, total, amountDue: amount, guest, paymentMethod: "microform", nights, adults, children });
-
   const reqUrl = new URL(request.url);
   const targetOrigins = [env.CHECKOUT_ORIGIN || reqUrl.origin];
   if (reqUrl.hostname === "localhost" && !targetOrigins.includes(reqUrl.origin)) {
@@ -44,11 +41,26 @@ export async function createSession(request, env) {
   // not JSON — cybersourceRequest falls back to { raw } when parsing fails.
   const captureContext = capture.data.raw ?? capture.data;
 
-  return json({ bookingId, amount, captureContext });
+  return json({ amount, captureContext });
+}
+
+export async function createBookingIntent(request, env) {
+  const { skus, payAmount, guest, checkin, checkout, adults, children } = await request.json();
+  const nights = checkin && checkout ? Math.max(0, Math.round((new Date(checkout + "T00:00:00") - new Date(checkin + "T00:00:00")) / (1000 * 60 * 60 * 24))) : 0;
+  const { items, total } = priceCart(skus, { nights, adults, children });
+  const { deposit, full } = computeDepositOptions(total);
+  const usdAmount = payAmount === "full" ? full : deposit;
+  const forex = await getUsdNprRate(env);
+  if (forex.fallback) return json({ error: "Live NPR exchange rate is unavailable" }, 503);
+  const amount = Math.max(0.01, Number((usdAmount * forex.rate).toFixed(2)));
+  const bookingId = crypto.randomUUID();
+  const totalNpr = Math.max(0.01, Number((total * forex.rate).toFixed(2)));
+  await createBooking(env, { bookingId, items, totalUsd: total, paidUsd: 0, remainingUsd: total, totalNpr, paidNpr: 0, remainingNpr: totalNpr, guest, paymentMethod: "microform", nights, adults, children });
+  return json({ bookingId, amount });
 }
 
 export async function charge(request, env) {
-  const { bookingId, transientToken, amount, currency = "USD", billTo, consumerAuthenticationInformation } = await request.json();
+  const { bookingId, transientToken, amount, currency = "NPR", billTo, consumerAuthenticationInformation } = await request.json();
   const result = await chargeCard(env, { bookingId, transientToken, amount, currency, billTo, consumerAuthenticationInformation, paymentMethod: "microform" });
   return new Response(JSON.stringify(result.body), { status: result.status, headers: { "Content-Type": "application/json" } });
 }
@@ -155,7 +167,7 @@ export function renderCheckoutPage(url) {
   .form-group { margin-bottom: 14px; }
   .form-group label { display: block; color: var(--muted); font-size: var(--checkout-label); font-weight: 600; margin: 0 0 7px; }
   .form-group input, .form-group textarea, .form-group select, .checkout-card input:not([type="radio"]), .checkout-card textarea, .checkout-card select { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.78); color: var(--ink); padding: 11px 12px; outline: 0; transition: border-color .2s, box-shadow .2s; }
-  .card-input { height: 42px !important; min-height: 42px !important; max-height: 42px; border: 1px solid var(--line) !important; border-radius: 10px !important; background: rgba(255,255,255,.78); padding: 8px 12px; }
+   .card-input { height: 42px !important; min-height: 42px !important; max-height: 42px; border: 1px solid var(--line) !important; border-radius: 10px !important; background: rgba(255,255,255,.78); padding: 8px 12px; font-size: var(--checkout-value); }
   .card-number-row iframe, .card-fields-row iframe { display: block; width: 100% !important; height: 24px !important; max-height: 24px !important; }
   .form-group input:focus, .form-group textarea:focus, .form-group select:focus, .checkout-card input:not([type="radio"]):focus, .checkout-card textarea:focus, .checkout-card select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184,92,56,.12); }
   .payment-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -193,11 +205,12 @@ export function renderCheckoutPage(url) {
   .summary-line small { display: block; color: var(--text-muted); font-size: var(--checkout-hint); margin-top: 2px; }
   .currency-box { padding: 12px 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; margin: 14px 0 0; }
   .currency-box + .currency-box { margin-top: 10px; }
-  .local-currency-toggle { display: block; width: 100%; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--checkout-label); font-weight: 600; text-align: left; padding: 0; cursor: pointer; }
+   .local-currency-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: var(--checkout-label); font-weight: 600; text-align: left; padding: 0; cursor: pointer; }
+   .local-currency-toggle::after { content: '›'; font-size: 1.35rem; line-height: 1; transform: translateY(-1px); transition: transform .18s ease; }
+   .reload-forex { border: 0; background: transparent; color: var(--accent); font-size: 1.1rem; font-weight: 700; cursor: pointer; padding: 0 4px; vertical-align: middle; }
   .local-currency-panel { display: none; margin-top: 12px; }
   .currency-box.is-open .local-currency-panel { display: block; }
-  .local-currency-toggle::after { content: '⌄'; float: right; font-size: 1.1rem; }
-  .currency-box.is-open .local-currency-toggle::after { content: '⌃'; }
+   .currency-box.is-open .local-currency-toggle::after { transform: rotate(-90deg); }
   .compact-security { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 16px; border: 1px solid rgba(230,221,211,.9); border-radius: 14px; background: rgba(255,255,255,.68); color: var(--muted); font-size: var(--checkout-hint); box-shadow: 0 8px 20px rgba(44,36,31,.06); }
   .compact-security svg { width: 20px; height: 20px; color: var(--success); grid-row: span 2; }
   .compact-security strong { color: var(--ink); font-size: var(--checkout-label); }
@@ -303,7 +316,17 @@ export function renderCheckoutPage(url) {
       paymentSection?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       payButton?.focus({ preventScroll: true });
     });
-    let quote, sessionInfo, microform;
+    let quote, sessionInfo, microform, sessionStarting = false;
+    const bookingStorageKey = 'booking_' + btoa(unescape(encodeURIComponent(JSON.stringify({ items, ...quoteOptions, payAmount: 'deposit' })))).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 180);
+    const guestPayload = () => ({
+      firstName: document.getElementById('bill-first').value.trim(),
+      lastName: document.getElementById('bill-last').value.trim(),
+      email: document.getElementById('bill-email').value.trim(),
+      phone: document.getElementById('bill-phone').value.trim(),
+      country: document.getElementById('bill-country').value.trim(),
+      notes: document.getElementById('guest-notes').value.trim(),
+    });
+    const guestReady = (guest) => guest.firstName && guest.lastName && guest.email && guest.phone && guest.country && guest.notes;
 
     function loadMicroformScript(clientLibrary, clientLibraryIntegrity) {
       return new Promise((resolve, reject) => {
@@ -319,6 +342,22 @@ export function renderCheckoutPage(url) {
     function decodeJwtPayload(jwt) {
       const payload = jwt.split('.')[1];
       return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    }
+    function initializeSession(s) {
+      if (!s) return Promise.resolve(null);
+      if (s.error) throw new Error(s.error);
+      sessionInfo = s;
+      const jwt = s.captureContext;
+      if (!jwt) throw new Error('Secure payment session did not return a capture context.');
+      const { ctx } = decodeJwtPayload(jwt);
+      const { clientLibrary, clientLibraryIntegrity } = ctx[0].data;
+      return loadMicroformScript(clientLibrary, clientLibraryIntegrity).then(() => {
+        const flex = new Flex(jwt);
+        microform = flex.microform('card');
+        microform.createField('number', { placeholder: 'Card number' }).load('#card-number');
+        microform.createField('securityCode', { placeholder: 'CVV' }).load('#security-code');
+        updateStickyPay();
+      });
     }
 
     const quoteParams = new URLSearchParams({ items, ...quoteOptions });
@@ -352,7 +391,8 @@ export function renderCheckoutPage(url) {
          document.getElementById('summary-total-usd').textContent = 'USD ' + Number(q.total).toFixed(2);
          document.getElementById('summary-payable-usd').textContent = 'USD ' + Number(q.deposits.deposit).toFixed(2);
          document.getElementById('summary-remaining-usd').textContent = 'USD ' + Math.max(0, Number(q.total) - Number(q.deposits.deposit)).toFixed(2);
-         const updatePayableDisplay = () => {
+          let nprRateReady = false;
+          const updatePayableDisplay = () => {
            const selectedPay = document.querySelector('input[name=pay]:checked')?.value || 'deposit';
            const payableUsd = selectedPay === 'full' ? Number(q.deposits.full) : Number(q.deposits.deposit);
            document.getElementById('summary-payable-usd').textContent = 'USD ' + payableUsd.toFixed(2);
@@ -360,13 +400,17 @@ export function renderCheckoutPage(url) {
            const remainingRow = document.getElementById('summary-remaining-row') || document.getElementById('summary-remaining-usd')?.parentElement;
            if (remainingRow) remainingRow.style.display = selectedPay === 'deposit' ? 'flex' : 'none';
            document.getElementById('remaining-balance-message').style.display = selectedPay === 'deposit' ? 'block' : 'none';
-           document.getElementById('pay-button-label').textContent = 'Pay securely · NPR --';
-           document.getElementById('pay-button-label').dataset.payableUsd = String(payableUsd);
+            document.getElementById('pay-button-label').textContent = nprRateReady ? 'Pay securely · NPR --' : 'NPR amount unavailable';
+             document.getElementById('pay-button-label').dataset.payableUsd = String(payableUsd);
+             document.getElementById('pay-button-label').dataset.payableNpr = '';
            document.getElementById('pay-button-label').dataset.payableNprRate = 'pending';
          };
          document.querySelectorAll('input[name=pay]').forEach((input) => input.addEventListener('change', updatePayableDisplay));
          updatePayableDisplay();
-         fetch('/api/forex').then((response) => response.json()).then((forex) => {
+          const loadForex = () => fetch('/api/forex').then((response) => response.json()).then((forex) => {
+           if (forex.fallback || !Number.isFinite(Number(forex.rate)) || Number(forex.rate) <= 0) throw new Error('Live NPR rate unavailable');
+           nprRateReady = true;
+           document.getElementById('pay-btn').disabled = false;
           const currencySelect = document.getElementById('local-currency');
           document.getElementById('local-currency-toggle').addEventListener('click', () => document.getElementById('local-currency-box').classList.toggle('is-open'));
           const rates = forex.rates || [{ iso3: 'NPR', name: 'Nepalese Rupee', unit: 1, buy: forex.rate }];
@@ -375,14 +419,15 @@ export function renderCheckoutPage(url) {
             const selected = rates.find((rate) => rate.iso3 === currencySelect.value) || rates[0];
             const selectedPay = document.querySelector('input[name=pay]:checked')?.value || 'deposit';
             const payableUsd = selectedPay === 'full' ? Number(q.deposits.full) : Number(q.deposits.deposit);
-            const nprTotal = payableUsd * Number(forex.rate);
+            const nprTotal = Math.max(0.01, Number((payableUsd * Number(forex.rate)).toFixed(2)));
             const selectedUnit = Number(selected.unit) || 1;
             const nprPerSelectedUnit = Number(selected.buy) / selectedUnit;
             const converted = selected.iso3 === 'NPR' ? nprTotal : nprTotal / nprPerSelectedUnit;
             document.getElementById('npr-rate').textContent = 'USD 1 = NPR ' + Number(forex.rate).toFixed(2);
             document.getElementById('npr-total').textContent = 'NPR ' + nprTotal.toFixed(2);
          const payableLabel = 'Pay securely · NPR ' + nprTotal.toFixed(2);
-         document.getElementById('pay-button-label').textContent = payableLabel;
+           document.getElementById('pay-button-label').textContent = payableLabel;
+           document.getElementById('pay-button-label').dataset.payableNpr = nprTotal.toFixed(2);
          document.getElementById('checkout-sticky-label').textContent = 'NPR ' + nprTotal.toFixed(2);
          document.getElementById('checkout-sticky-button').textContent = 'Pay securely';
            document.getElementById('pay-button-label').dataset.payableNprRate = String(forex.rate);
@@ -393,38 +438,41 @@ export function renderCheckoutPage(url) {
           document.querySelectorAll('input[name=pay]').forEach((input) => input.addEventListener('change', updateLocalTotal));
           updateLocalTotal();
           document.getElementById('exchange-source').innerHTML = (forex.fallback ? 'Source: Fallback rate shown; live NRB rate unavailable.' : 'Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a>') + '<br>Rate date: ' + (forex.date || '--');
-        }).catch(() => { document.getElementById('exchange-source').textContent = 'Source: Nepal Rastra Bank · rate unavailable.'; });
+         }).catch(() => {
+           nprRateReady = false;
+           document.getElementById('pay-btn').disabled = true;
+           document.getElementById('exchange-source').innerHTML = 'Live NPR rate unavailable. <button type="button" id="reload-forex" class="reload-forex" aria-label="Reload NPR exchange rate">&#8635;</button>';
+           document.getElementById('reload-forex').addEventListener('click', () => { document.getElementById('exchange-source').textContent = 'Loading live NPR rate...'; loadForex(); });
+         });
+         loadForex();
         document.getElementById('card-number').innerHTML = '<div class="session-loading">Preparing secure card fields...</div>';
         document.getElementById('security-code').innerHTML = '<div class="session-loading">Loading...</div>';
-        return fetch('/api/microform/session', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            skus: items.split(','), payAmount: 'deposit', ...quoteOptions,
-            guest: {
-              firstName: document.getElementById('bill-first').value,
-              lastName: document.getElementById('bill-last').value,
-              email: document.getElementById('bill-email').value,
-              phone: document.getElementById('bill-phone').value,
-              notes: document.getElementById('guest-notes').value
-            }
-          })
-        });
-      })
-      .then(r => r.json())
-      .then(s => {
-        sessionInfo = s;
-        const jwt = s.captureContext;
-        const { ctx } = decodeJwtPayload(jwt);
-        const { clientLibrary, clientLibraryIntegrity } = ctx[0].data;
-        return loadMicroformScript(clientLibrary, clientLibraryIntegrity).then(() => {
-          const flex = new Flex(jwt);
-          microform = flex.microform('card');
-          microform.createField('number', { placeholder: 'Card number' }).load('#card-number');
-          microform.createField('securityCode', { placeholder: 'CVV' }).load('#security-code');
-          document.getElementById('pay-btn').disabled = false;
-          updateStickyPay();
-        });
-      })
+        const startSession = () => {
+          const guest = guestPayload();
+           if (sessionStarting) return Promise.resolve(null);
+           if (sessionInfo) return Promise.resolve(null);
+          sessionStarting = true;
+          const storedBookingId = sessionStorage.getItem(bookingStorageKey);
+          const statusCheck = storedBookingId
+            ? fetch('/api/microform/booking-status?bookingId=' + encodeURIComponent(storedBookingId)).then((r) => r.ok ? r.json() : null).catch(() => null)
+            : Promise.resolve(null);
+          return statusCheck.then((status) => {
+            return fetch('/api/microform/session', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skus: items.split(','), payAmount: 'deposit', ...quoteOptions })
+            }).then((response) => response.json());
+          }).then((result) => {
+            sessionStarting = false;
+            return result;
+          }).catch((error) => { sessionStarting = false; throw error; });
+        };
+        document.querySelectorAll('#bill-first,#bill-last,#bill-email,#bill-phone,#guest-notes,#bill-country').forEach((field) => field.addEventListener('input', () => startSession().then((result) => {
+          if (!result) return;
+          return initializeSession(result);
+        }).catch((error) => { document.getElementById('msg').textContent = 'Setup error: ' + error.message; })));
+        return startSession();
+       })
+       .then(initializeSession)
       .catch(e => { document.getElementById('msg').textContent = 'Setup error: ' + e.message; console.error(e); });
 
     function validateCheckoutFields() {
@@ -434,10 +482,6 @@ export function renderCheckoutPage(url) {
         ['bill-email', value => /^[^ @]+@[^ @]+[.][^ @]+$/.test(value.trim()), 'Enter a valid email address.'],
         ['bill-phone', value => /^[+][0-9]{7,18}$/.test(value.trim()), 'Phone number must start with + and contain digits only.'],
         ['guest-notes', value => value.trim().length > 0, 'Add a note or remark.'],
-        ['bill-address', value => value.trim().length > 0, 'Enter your address.'],
-        ['bill-city', value => value.trim().length > 0, 'Enter your city.'],
-        ['bill-state', value => value.trim().length > 0, 'Enter your state or province.'],
-        ['bill-zip', value => value.trim().length > 0, 'Enter your postal code.'],
         ['bill-country', value => value.trim().length > 0, 'Select your country.'],
       ];
       for (const [id, check, message] of fields) {
@@ -466,9 +510,10 @@ export function renderCheckoutPage(url) {
     });
     document.getElementById('pay-btn').addEventListener('click', () => {
       if (!validateCheckoutFields()) return;
-      const currency = document.getElementById('currency') ? document.getElementById('currency').value : 'USD';
+       const currency = 'NPR';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
-      const amount = payAmount === 'full' ? quote.deposits.full : quote.deposits.deposit;
+       const amount = Number(document.getElementById('pay-button-label').dataset.payableNpr);
+       if (!amount) { document.getElementById('msg').textContent = 'Live NPR amount is not available yet.'; return; }
       const billTo = {
         firstName: document.getElementById('bill-first').value,
         lastName: document.getElementById('bill-last').value,
@@ -486,6 +531,31 @@ export function renderCheckoutPage(url) {
         if (err) { document.getElementById('msg').textContent = 'Card error: ' + err.message; return; }
 
         try {
+          // Create the business booking only after the customer explicitly
+          // submits valid payment details. Capture context creation above is
+          // intentionally independent from Sheet persistence.
+          const storedBookingId = sessionStorage.getItem(bookingStorageKey);
+          let bookingStatus = null;
+          if (storedBookingId) {
+            bookingStatus = await fetch('/api/microform/booking-status?bookingId=' + encodeURIComponent(storedBookingId))
+              .then((response) => response.ok ? response.json() : null).catch(() => null);
+          }
+          if (bookingStatus?.pending) {
+            sessionInfo.bookingId = storedBookingId;
+            await fetch('/api/microform/booking-guest', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookingId: storedBookingId, guest: guestPayload() })
+            });
+          } else {
+            const intent = await fetch('/api/microform/booking-intent', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ skus: items.split(','), payAmount, ...quoteOptions, guest: guestPayload() })
+            }).then((response) => response.json());
+            if (!intent.bookingId) throw new Error(intent.error || 'Could not create booking intent.');
+            sessionInfo.bookingId = intent.bookingId;
+            sessionStorage.setItem(bookingStorageKey, intent.bookingId);
+          }
+
           // Step 1: Auth Setup
           const setupResp = await fetch('/api/microform/auth-setup', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -531,7 +601,7 @@ export function renderCheckoutPage(url) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               transientToken: token, referenceId: setupResp.referenceId,
-              amount: amount, currency: currency || 'USD', billTo: billTo,
+               amount: amount, currency: currency, billTo: billTo,
               returnUrl: (location.origin + '/api/microform/stepup-callback')
             })
           }).then(r => r.json());
@@ -590,17 +660,19 @@ export function renderCheckoutPage(url) {
 
           const chargePayload = {
             bookingId: sessionInfo.bookingId, transientToken: token, amount: amount,
-            currency: currency || 'USD', billTo: billTo
+             currency: currency, billTo: billTo
           };
           if (authFields && authFields.cavv) {
             chargePayload.consumerAuthenticationInformation = authFields;
           }
-          const chargeResp = await fetch('/api/microform/charge', {
+           const chargeResp = await fetch('/api/microform/charge', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chargePayload)
-          }).then(r => r.json());
+           }).then(r => r.json());
 
-          document.getElementById('msg').textContent = chargeResp.error
+           if (!chargeResp.error) sessionStorage.removeItem(bookingStorageKey);
+
+           document.getElementById('msg').textContent = chargeResp.error
             ? ('Payment failed: ' + JSON.stringify(chargeResp.detail))
             : 'Payment confirmed — booking is paid.';
         } catch (e) {

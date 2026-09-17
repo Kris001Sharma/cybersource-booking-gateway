@@ -192,6 +192,12 @@ export const activities = [
     durations: [{ label: "Evening", durationNights: 0, price: 25 }],
     imageUrl: "",
   },
+  {
+    slug: "act-test",
+    name: "Private test",
+    durations: [{ label: "Evening", durationNights: 0, price: .01 }],
+    imageUrl: "",
+  },
 ];
 
 export const theme = {

@@ -7,6 +7,7 @@
 import { cybersourceRequest } from "../../cybersource.js";
 import { updateBookingStatus, getBooking } from "../../bookings.js";
 import { priceCart, computeDepositOptions } from "../../catalog.js";
+import { getUsdNprRate } from "../../forex.js";
 
 const SUPPORTED_CURRENCIES = ["USD", "NPR"];
 
@@ -40,7 +41,7 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
     return { ok: false, status: 400, body: { error: "Unsupported currency", detail: currency } };
   }
 
-  const required = ["firstName", "lastName", "email", "address1", "locality", "country"];
+  const required = ["firstName", "lastName", "email", "country"];
   const missing = required.filter((f) => !billTo?.[f]);
   if (missing.length) {
     return { ok: false, status: 400, body: { error: "Missing billing fields", detail: missing } };
@@ -63,9 +64,15 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
     });
     const { deposit, full } = computeDepositOptions(total);
     console.log(`[chargeCard] Booking ${bookingId}: items=${JSON.stringify(items)}, total=${total}, deposit=${deposit}, full=${full}, clientAmount=${amount}`);
-    const isValidAmount = Math.abs(amount - deposit) < 0.01 || Math.abs(amount - full) < 0.01;
+    const forex = await getUsdNprRate(env);
+    if (currency !== "NPR" || forex.fallback) {
+      return { ok: false, status: 503, body: { error: "Live NPR exchange rate is unavailable" } };
+    }
+    const expectedDeposit = Math.max(0.01, Number((deposit * forex.rate).toFixed(2)));
+    const expectedFull = Math.max(0.01, Number((full * forex.rate).toFixed(2)));
+    const isValidAmount = Math.abs(amount - expectedDeposit) < 0.01 || Math.abs(amount - expectedFull) < 0.01;
     if (!isValidAmount) {
-      return { ok: false, status: 400, body: { error: "Amount mismatch", detail: { clientAmount: amount, serverDeposit: deposit, serverFull: full } } };
+      return { ok: false, status: 400, body: { error: "Amount mismatch", detail: { clientAmount: amount, serverDeposit: expectedDeposit, serverFull: expectedFull, currency } } };
     }
     serverAmount = amount;
   } else {
@@ -116,10 +123,25 @@ export async function chargeCard(env, { bookingId, transientToken, amount, curre
 
   // Ensure guest/billTo is properly passed for Sheet update
   console.log(`[chargeCard] Calling updateBookingStatus with guest:`, JSON.stringify(billTo, null, 2));
-  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", guest: billTo, paymentMethod });
+  // The pending row already owns the staff guest fields. A payment status
+  // transition must not replace them with the billing/AVS payload.
+  const failureMessage = authorized ? "" : formatPaymentError(result.data);
+  let paidUsd = 0;
+  if (authorized && booking) {
+    const { deposit, full } = computeDepositOptions(booking.totalUsd ?? booking.total);
+    const forex = await getUsdNprRate(env);
+    const depositNpr = Number((deposit * forex.rate).toFixed(2));
+    paidUsd = Math.abs(Number(serverAmount) - depositNpr) < 0.01 ? deposit : full;
+  }
+  await updateBookingStatus(env, { bookingId, status: authorized ? "paid" : "failed", paymentMethod, errorMessage: failureMessage, paidUsd, paidNpr: authorized ? Number(serverAmount) : 0 });
 
   if (!authorized) {
     return { ok: false, status: 402, body: { error: "Charge failed", detail: result.data } };
   }
   return { ok: true, status: 200, body: { status: "paid", cybsResponse: result.data } };
+}
+
+function formatPaymentError(data) {
+  const raw = data?.message || data?.errorInformation?.message || data?.errorInformation?.reason || data?.status || "Payment authorization failed";
+  return String(raw).replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").slice(0, 500);
 }

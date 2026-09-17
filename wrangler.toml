@@ -18,7 +18,7 @@ CHECKOUT_ORIGIN = "https://book.krishna-sharma.com.np"
 DEBUG_ENABLED = "true"
 
 [triggers]
-crons = ["*/5 * * * *"] # reconciliation every 5 minutes
+crons = ["*/30 * * * *"]  # reconciliation every 30 minutes
 
 [[routes]]
 pattern = "book.krishna-sharma.com.np"
