@@ -1,6 +1,5 @@
 /** Confirmation page — Phase 3 implementation */
 
-import * as utils from "../client/utils.js";
 import { injectThemeCSS } from "../client/theme.js";
 
 export async function renderPage(url) {

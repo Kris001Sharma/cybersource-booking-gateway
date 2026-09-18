@@ -1,6 +1,6 @@
 # Sapana Village Resort — Payment Integration: Project Status & Architecture
 
-Last updated: 2026-09-13. Verified against working tree (`git rev-parse HEAD`: `5a6995c`). Every file/line reference below was checked against the actual source at this commit. No descriptions from memory.
+Last updated: 2026-09-18. Verified against the current working tree. File/line references are intentionally limited where generated inline HTML changes frequently.
 
 ---
 
@@ -56,7 +56,7 @@ booking-poc/
     pages/
       landing.js            (parameterized landing with PACKAGES: 5-24; ACTIVITIES: 26-30; handlePackageParam: 274-299 — verified)
       checkout.js           (checkout shell — verified: 820+ lines; body render: 94; billTo: 420-432; session creation: 29-35)
-      confirmation.js       (confirmation page — verified: 200+ lines; renderPage: 6; fetchBooking: 32-39)
+      confirmation.js       (confirmation page — structured customer, stay, item, USD/NPR totals, and calendar confirmation)
   tests/
     checkout.test.js       (tests for checkout page behavior)
     confirmation.test.js   (tests for confirmation flow)
@@ -80,7 +80,7 @@ Verified in source (`microform.js`):
 - `checkEnrollment`: calls `payer-auth.js`: `checkEnrollment` (line 62).
 - `validateAuth`: calls `payer-auth.js`: `validateAuthentication` (line 70) — uses `bookingId` as `clientReferenceInformation.code`.
 - `stepUpCallback`: renders HTML with `postMessage({ type: "stepup-complete", transactionId })` to parent (line 74-102).
-- `renderCheckoutPage`: full checkout HTML with Microform script load, DDC hidden iframe/form (`line 249-259`), step-up challenge container (`line 290-317`), charge payload construction (`line 332-346`).
+- `renderCheckoutPage`: full checkout HTML with Microform script load, DDC hidden iframe/form, a synchronous processing modal, a single modal step-up iframe, finalizing state, structured success details, bounded failure details, and cleanup for body scroll/sticky-pay state.
 
 Confirmed working (tested via browser + Postman):
 - `POST /microform/v2/sessions` — returns valid capture context JWT.
@@ -88,7 +88,7 @@ Confirmed working (tested via browser + Postman):
 - `POST /risk/v1/authentication-setups` — real Cardinal `accessToken`/`deviceDataCollectionUrl`/`referenceId` returned (verified in Postman).
 - Device data collection (`DDC`) — hidden iframe/form submits to `deviceDataCollectionUrl`; `postMessage` from `https://centinelapi.cardinalcommerce.com` with `MessageType: "profile.completed"` verified (`line 264-271`).
 - Enrollment (`POST /risk/v1/authentications`) — returns either `challengeRequired: 'N'` (frictionless) or `stepUpUrl` + `accessToken` (challenge required).
-- Step-up challenge — iframe/form submits JWT; `postMessage` `type: "stepup-complete"` handled (`line 306-312`).
+- Step-up challenge — the existing iframe/form submits JWT; `postMessage` `type: "stepup-complete"` is handled and cleaned up on completion, failure, close, retry, or timeout.
 - Validation (`POST /risk/v1/authentication-results`) — returns `cavv`/`eciRawType`/`eci`/`xid`/`directoryServerTransactionId` (`line 332-337`).
 
 Blocked:

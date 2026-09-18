@@ -1,6 +1,8 @@
 # Portable Payment & Booking Subsystem — Architecture Spec
 
-**Goal:** One small, secure, self-contained service that handles "customer picks room + activities → pays a deposit or full amount via CyberSource → booking is confirmed only after verified payment." It should plug into *any* front end — a static Strikingly page today, WordPress or a custom app tomorrow — with minimal or zero changes on the front-end side.
+**Goal:** One small, secure, self-contained service that handles "customer picks room + activities → pays a deposit or full amount via CyberSource → booking is confirmed only after verified payment." It plugs into *any* front end — a static Strikingly page today, WordPress or a custom app tomorrow — with minimal changes on the front-end side.
+
+**Current implementation note (2026-09-18):** The Cloudflare Worker serves embedded Microform, Unified Checkout, and hosted Pay by Link routes backed by Google Apps Script and Sheets. Microform checkout includes processing, 3DS challenge, finalizing, success, and failure modal states. The standalone `/confirmation` route renders structured customer, stay, item, USD, and NPR booking details; it is presentation-only and does not replace server-side payment verification.
 
 ---
 
@@ -45,7 +47,7 @@ This is the key to portability, and it directly answers your Strikingly question
 - **The link never carries a price.** It only carries *what* was selected. The checkout subsystem looks up the real price for each SKU from its own catalog and does all the math (subtotal, deposit tiers, etc.) itself. This means a static site literally cannot be tricked into sending a wrong price — there's no price to tamper with in the URL.
 - On Strikingly specifically: add one "Book Now" button per room/activity (Strikingly supports linking any button/image to an external URL), pointing to that room's checkout link. Zero JavaScript, zero embed code required. This is your Phase-1 integration.
 - On a site that *can* embed JavaScript (WordPress, a custom app), you can later add a small embed script that opens the same checkout URL in a modal/iframe instead of a full redirect — purely a UX upgrade, same backend, same links underneath.
-- On a fully custom app, skip the link entirely and call the subsystem's API directly (`POST /api/quote`, `POST /api/session`) — same backend, no redirect needed.
+- On a fully custom app, skip the link entirely and call the subsystem's API directly (`GET /api/quote`, `POST /api/microform/session`, `POST /api/microform/charge`) — same backend, no redirect needed.
 
 This is what makes it "repackageable": the contract between any front end and this subsystem is just **a URL with SKUs in it, or a small JSON API** — nothing front-end-technology-specific.
 
@@ -61,10 +63,10 @@ Reads the SKUs from the URL, fetches real prices/availability from the backend, 
 
 **C. Backend (Cloudflare Worker functions)**
 - `GET /api/quote` — given SKUs, returns real prices, computed total, and valid deposit options.
-- `POST /api/session` — creates a `pending` booking record, places a short inventory hold, and returns whatever CyberSource needs to initialize the Microform capture context.
-- `POST /api/charge` — receives the Microform token, re-validates the amount server-side, calls CyberSource to actually charge it.
+- `POST /api/microform/session` — returns a Microform capture context.
+- `POST /api/microform/charge` — receives the Microform token and authentication fields, re-validates the amount server-side, and calls CyberSource to charge it.
 - `POST /api/webhook/cybersource` — receives CyberSource's signed payment notification, verifies the signature, marks the booking `paid`, finalizes the inventory hold, triggers the confirmation email.
-- `GET /api/availability` — coarse (available/full) status per room type per date range, read by the checkout page before showing a room as selectable.
+- `GET /api/booking` — retrieves a structured booking record for the confirmation page.
 
 **D. Data store (Google Sheet)**
 One tab for bookings (`booking_id, skus, guest info, total, deposit_paid, status, created_at`), one tab for inventory holds/availability.
@@ -164,7 +166,5 @@ You can hand this paragraph directly to Claude Code (or a similar tool) to scaff
 ### User findings ### ! IMPORTANT
 
 **Rest API** REST API transactions specifically fail until a merchant-specific outlet/terminal identifier is attached to that particular processing connection — separate from whatever Pay by Link already uses.
-
-
 
 

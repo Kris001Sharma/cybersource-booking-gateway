@@ -18,6 +18,8 @@
 
 **Additional activities:** When the cart contains only room SKUs (no package SKUs like `act-spa`, `act-hike`, `act-dinner`), the `getSuggestedAddOns()` logic recommends additional activities.
 
+**Confirmation and payment UX:** The Microform checkout opens its processing state before tokenization, uses the existing 3DS `stepup-complete` message for the bank challenge, and renders finalizing, success, and failure states inline. The `/confirmation?bookingId=...` route reads structured booking data from `/api/booking` and displays the customer name/contact, booking reference, stay dates and nights, readable item names, item quantities, USD totals, remaining balance, and NPR paid amount. The confirmation page is not the source of payment truth; server-side charge/status handling remains authoritative.
+
 
 This is a **standalone serverless checkout microsite** hosted on Cloudflare Workers + Pages. It handles:
 
@@ -59,8 +61,9 @@ The client's site loads a small script that opens the checkout URL in a modal or
 The client's custom application skips the checkout page entirely and calls:
 
 - `GET /api/quote` — to get priced line items
-- `POST /api/session` — to create a booking session (for embedded methods)
-- `POST /api/charge` — to submit a tokenized card
+- `POST /api/microform/session` — to create a Microform capture context
+- `POST /api/microform/charge` — to submit a tokenized card and authentication fields
+- `GET /api/booking?bookingId=...` — to load structured confirmation details
 
 The client's app handles card capture (Microform or Unified Checkout) independently.
 
