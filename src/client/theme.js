@@ -34,5 +34,5 @@ export function injectThemeCSS() {
   const cssVars = Object.entries(theme)
     .map(([k, v]) => `--${k}: ${v};`)
     .join("\n  ");
-  return `:root {\n  ${cssVars}\n}`;
+  return `:root {\n  ${cssVars}\n}\n\nhtml {\n  scrollbar-width: thin;\n  scrollbar-color: var(--accent) transparent;\n}\n\nhtml::-webkit-scrollbar {\n  width: 6px;\n  height: 6px;\n}\n\nhtml::-webkit-scrollbar-track {\n  background: transparent;\n}\n\nhtml::-webkit-scrollbar-thumb {\n  background: var(--accent);\n  border-radius: 999px;\n}\n\nhtml::-webkit-scrollbar-thumb:hover {\n  background: var(--accent-hover);\n}`;
 }

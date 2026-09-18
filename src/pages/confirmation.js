@@ -40,18 +40,24 @@ async function fetchBooking(bookingId) {
 
 function renderConfirmationPage(booking, checkin, checkout) {
   // Guard against empty or malformed booking data
-  if (!booking || !booking.guest || !booking.items || booking.items.length === 0) {
+  if (!booking || !booking.guest || !Array.isArray(booking.items) || booking.items.length === 0) {
     const html = `<div class="error-state"><h2>Booking Details Not Available</h2><p>We couldn't retrieve full booking details. Please use your booking reference (${checkin ? 'checkin: ' + checkin : ''}) to verify.</p><a href="/landing" class="back-link">Back to Home</a></div>`;
     document.body.innerHTML = html;
     applyDesignTokens();
     return;
   }
-  // Calculate nights if dates provided
-  let nights = 0;
+  const money = (value, currency = "USD") => `${currency} ${Number(value || 0).toFixed(2)}`;
+  const guestName = [booking.guest.firstName, booking.guest.lastName].filter(Boolean).join(" ") || "Guest";
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+  const itemName = (item) => item?.name || item?.title || item?.sku || "Booked item";
+  const itemTotal = (item) => Number(item?.total ?? item?.price ?? 0);
+  const itemQuantity = (item) => Number(item?.quantity || 1);
+  // Prefer the persisted booking duration, with URL dates as a fallback.
+  let nights = Number(booking.nights) || 0;
   if (checkin && checkout) {
     const checkinDate = new Date(checkin + "T00:00:00");
     const checkoutDate = new Date(checkout + "T00:00:00");
-    nights = Math.max(0, Math.round((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));
+    nights = nights || Math.max(0, Math.round((checkoutDate - checkinDate) / (1000 * 60 * 60 * 24)));
   }
 
   // Format dates
@@ -73,7 +79,7 @@ function renderConfirmationPage(booking, checkin, checkout) {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Booking Confirmed - ${booking?.guest?.name || "Guest"}</title>
+      <title>Booking Confirmed - ${escapeHtml(guestName)}</title>
 
       <!-- Google Fonts -->
       <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -154,6 +160,13 @@ function renderConfirmationPage(booking, checkin, checkout) {
           color: var(--accent);
           margin: 20px 0;
           text-align: center;
+        }
+
+        .guest-contact {
+          color: var(--text-secondary);
+          text-align: center;
+          font-size: 0.9rem;
+          margin-top: -12px;
         }
 
         .booking-reference {
@@ -238,6 +251,17 @@ function renderConfirmationPage(booking, checkin, checkout) {
         .item-price {
           color: var(--text-secondary);
           font-weight: 500;
+        }
+
+        .item-meta {
+          color: var(--text-muted);
+          font-size: 0.82rem;
+          margin-top: 2px;
+        }
+
+        .npr-total-row {
+          color: var(--accent);
+          font-weight: 600;
         }
 
         .total-section {
@@ -395,9 +419,8 @@ function renderConfirmationPage(booking, checkin, checkout) {
           </div>
 
           <div class="confirmation-content">
-            <div class="guest-name">
-              ${booking?.guest?.name || "Guest"}
-            </div>
+            <div class="guest-name">Thank you, ${escapeHtml(guestName)}</div>
+            <div class="guest-contact">${escapeHtml(booking.guest.email || "")}${booking.guest.phone ? ` · ${escapeHtml(booking.guest.phone)}` : ""}</div>
 
             <div class="booking-reference">
               <label>Booking Reference</label>
@@ -415,10 +438,10 @@ function renderConfirmationPage(booking, checkin, checkout) {
 
             <div class="items-summary">
               <h3>Booking Details</h3>
-              ${booking?.items?.map(item => `
+              ${booking.items.map(item => `
                 <div class="item">
-                  <div class="item-name">${item.name}</div>
-                  <div class="item-price">$${item.price.toFixed(2)}</div>
+                  <div><div class="item-name">${escapeHtml(itemName(item))}</div><div class="item-meta">${itemQuantity(item)} ${itemQuantity(item) === 1 ? "guest" : "guests"}${item.nights ? ` · ${item.nights} nights` : ""}</div></div>
+                  <div class="item-price">${money(itemTotal(item))}</div>
                 </div>
               `).join('')}
             </div>
@@ -426,21 +449,25 @@ function renderConfirmationPage(booking, checkin, checkout) {
             <div class="total-section">
               <div class="total-row">
                 <span>Subtotal</span>
-                <span>$${booking?.total?.toFixed(2) || '0.00'}</span>
+                <span>${money(booking.totalUsd)}</span>
               </div>
-              ${booking?.deposits ? `
+              ${Number(booking.paidUsd) || Number(booking.totalNpr) ? `
                 <div class="total-row">
-                  <span>Deposit (paid now)</span>
-                  <span>$${booking.deposits.deposit.toFixed(2)}</span>
+                  <span>Paid now</span>
+                  <span>${money(booking.paidUsd)}</span>
                 </div>
                 <div class="total-row">
-                  <span>Balance due</span>
-                  <span>$${booking.deposits.full.toFixed(2)}</span>
+                  <span>Remaining balance</span>
+                  <span>${money(booking.remainingUsd)}</span>
                 </div>
               ` : ''}
               <div class="total-row final">
-                <span>Total Charged</span>
-                <span>$${booking?.total?.toFixed(2) || '0.00'}</span>
+                <span>Total booking value</span>
+                <span>${money(booking.totalUsd)}</span>
+              </div>
+              <div class="total-row npr-total-row">
+                <span>NPR paid</span>
+                <span>${money(booking.paidNpr, "NPR")}</span>
               </div>
             </div>
 

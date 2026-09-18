@@ -177,7 +177,7 @@ export function renderCheckoutPage(url) {
   .primary-action { width: 100%; border: 0; border-radius: 11px; background: var(--accent); color: #fff; padding: 14px 18px; font-weight: 700; box-shadow: 0 8px 18px rgba(184,92,56,.22); transition: background .2s, transform .2s; }
   .pay-button-lock { width: 17px; height: 17px; vertical-align: -3px; margin-right: 6px; }
   .primary-action:hover { background: var(--accent-hover); transform: translateY(-1px); }
-  .checkout-sticky-pay { position: fixed; left: max(18px, calc((100vw - 1160px) / 2 + 24px)); width: min(calc(100vw - 36px), 696px); bottom: 16px; z-index: 80; display: none; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; border: 1px solid rgba(255,255,255,.9); border-radius: 14px; background: rgba(250,247,242,.95); box-shadow: 0 12px 32px rgba(44,36,31,.16); backdrop-filter: blur(14px); }
+   .checkout-sticky-pay { position: fixed; left: max(18px, calc((100vw - 1160px) / 2 + 24px)); width: min(calc(100vw - 36px), 696px); bottom: 16px; z-index: 10; display: none; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; border: 1px solid rgba(255,255,255,.9); border-radius: 14px; background: rgba(250,247,242,.95); box-shadow: 0 12px 32px rgba(44,36,31,.16); backdrop-filter: blur(14px); }
   .checkout-sticky-pay.is-visible { display: flex; }
   .checkout-sticky-pay strong { color: var(--accent); font-size: 1rem; }
   .checkout-sticky-pay button { width: auto; padding: 10px 16px; }
@@ -238,8 +238,28 @@ export function renderCheckoutPage(url) {
   .trust-item b { color: var(--success); }
   #deposit-options { margin-top: 10px; }
   #msg { color: var(--error); font-size: .85rem; margin-top: 12px; }
-  #stepup-section { margin-top: 20px; }
-  @media (max-width: 760px) { .checkout-page { padding: 22px 15px 42px; } .checkout-header { margin-bottom: 25px; } .checkout-layout { grid-template-columns: 1fr; } .summary-card { position: static; } .form-grid { grid-template-columns: 1fr; gap: 0; } }
+   .payment-modal { position: fixed; inset: 0; z-index: 300; display: none; place-items: center; padding: 0; overflow: hidden; background: rgba(44,36,31,.64); backdrop-filter: blur(7px); }
+   .payment-modal.is-open { display: grid; }
+   .payment-modal-card { position: relative; top: 30vh; width: min(100%, 640px); max-height: calc(100dvh - 32px); overflow: hidden; padding: 24px; border: 1px solid rgba(255,255,255,.9); border-radius: 10px; background: #fffaf5; box-shadow: 0 24px 80px rgba(35,25,20,.3); display: flex; flex-direction: column; }
+   .payment-modal.challenge .payment-modal-card, .payment-modal.success .payment-modal-card { width: min(100%, 620px); height: min(720px, calc(100dvh - 32px)); }
+   .payment-modal.challenge .payment-modal-card { padding: 12px; }
+   .payment-modal.challenge .payment-modal-card p { margin-bottom: 6px; }
+   .payment-modal.processing .payment-modal-card, .payment-modal.finalizing .payment-modal-card, .payment-modal.failure .payment-modal-card { min-height: 250px; }
+   .payment-modal-card h2 { margin: 0 0 8px; color: var(--ink); font-size: 1.35rem; }
+   .payment-modal-card p { color: var(--muted); line-height: 1.55; margin: 0 0 16px; }
+   .payment-modal-status { display: flex; align-items: center; justify-content: center; gap: 11px; min-height: 42px; color: var(--accent); font-weight: 700; text-align: center; }
+   .payment-spinner { width: 21px; height: 21px; flex: 0 0 auto; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: checkout-spin .8s linear infinite; }
+   .payment-modal iframe { display: none; flex: 1 1 auto; width: 100%; min-height: 0; height: 100%; margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; scrollbar-width: none; }
+   .payment-modal iframe::-webkit-scrollbar { display: none; }
+   .payment-success-details { display: none; gap: 8px; margin: 8px 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: .88rem; }
+   .payment-success-details strong { color: var(--ink); }
+   .payment-modal-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 18px; }
+   .payment-modal-actions button { min-width: 140px; min-height: 42px; }
+   .payment-error-detail { display: none; max-height: 120px; margin-top: 12px; padding: 12px; border-radius: 10px; background: #fff0ed; color: var(--error); font-size: .8rem; white-space: pre-wrap; overflow: auto; overflow-wrap: anywhere; scrollbar-width: thin; }
+   .payment-error-toggle { display: none; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: .82rem; font-weight: 700; padding: 8px 0 0; cursor: pointer; }
+   .payment-modal.success .payment-modal-status { color: var(--success); font-size: 1.05rem; }
+   .payment-modal.failure .payment-modal-status { color: var(--error); font-size: 1.05rem; }
+   @media (max-width: 760px) { .checkout-page { padding: 22px 15px 42px; } .checkout-header { margin-bottom: 25px; } .checkout-layout { grid-template-columns: 1fr; } .summary-card { position: static; } .form-grid { grid-template-columns: 1fr; gap: 0; } .payment-modal-card, .payment-modal.challenge .payment-modal-card, .payment-modal.success .payment-modal-card { width: 100%; max-height: calc(100dvh - 20px); padding: 18px; } .payment-modal.challenge .payment-modal-card { height: calc(100dvh - 20px); padding: 10px; } .payment-modal-actions button { flex: 1 1 130px; } }
 </style></head>
 <!-- payment-method: microform -->
 <body><div id="checkout-sticky-pay" class="checkout-sticky-pay"><strong id="checkout-sticky-label">NPR --</strong><button type="button" id="checkout-sticky-button" class="primary-action">Pay securely</button></div><div id="remove-confirm" class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="remove-confirm-title"><div class="confirm-dialog"><h3 id="remove-confirm-title">Remove this activity?</h3><p>This optional activity will be removed from your booking.</p><div class="confirm-actions"><button type="button" id="remove-cancel" class="btn btn-outline">Keep it</button><button type="button" id="remove-confirm-action" class="primary-action" style="width:auto">Remove</button></div></div></div><main class="checkout-page">
@@ -255,7 +275,7 @@ export function renderCheckoutPage(url) {
   <div class="form-group"><label for="bill-first">First name *</label><input id="bill-first" required placeholder="First name"></div>
   <div class="form-group"><label for="bill-last">Last name *</label><input id="bill-last" required placeholder="Last name"></div></div>
   <div class="form-group"><label for="bill-email">Email address *</label><input id="bill-email" required placeholder="you@example.com" type="email"></div>
-  <div class="form-group"><label for="bill-phone">Phone number *</label><div class="phone-row"><input id="bill-phone" required placeholder="+977123456789" type="tel" inputmode="tel" pattern="\+[0-9]{7,18}"></div></div>
+   <div class="form-group"><label for="bill-phone">Phone number *</label><div class="phone-row"><input id="bill-phone" required placeholder="+977123456789" type="tel" inputmode="tel" pattern="[+][0-9]{7,18}"></div></div>
   <div class="form-group"><label for="guest-notes">Notes or remarks *</label><textarea id="guest-notes" required rows="3" placeholder="Anything we should know?"></textarea></div>
   <h3>Billing address</h3><div class="form-group"><label for="bill-address">Address line 1</label><input id="bill-address" placeholder="Street address"></div>
   <div class="billing-compact-row"><div class="form-group"><label for="bill-city">City</label><input id="bill-city" placeholder="City"></div><div class="form-group"><label for="bill-state">State / province</label><input id="bill-state" placeholder="State / province"></div><div class="form-group"><label for="bill-zip">Postal code</label><input id="bill-zip" placeholder="Postal code"></div><div class="form-group"><label for="bill-country">Country *</label><input id="bill-country" required placeholder="Country"></div></div>
@@ -282,17 +302,22 @@ export function renderCheckoutPage(url) {
     <div id="security-code" class="card-input security-input"></div>
   </div>
   <button id="pay-btn" class="primary-action" disabled><svg class="pay-button-lock" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><span id="pay-button-label">Pay securely</span></button><div class="payment-cards">Accepted cards<div class="accepted-cards" aria-label="Accepted cards"><img class="card-brand" src="${siteInfo.visaLogoUrl}" alt="Visa"><img class="card-brand" src="${siteInfo.mastercardLogoUrl}" alt="Mastercard"></div><div class="payment-trust-line">Secured by Cybersource · Powered by Visa</div></div>
-  <div id="msg"></div>
+   <div id="msg"></div>
 
-  <!-- Step-Up Challenge container (visible when challenge required) -->
-  <div id="stepup-section" style="display:none;margin-top:20px;border-top:2px solid #ccc;padding-top:15px;">
-    <h3>Step-Up Challenge Frame (OTP)</h3>
-    <p>Issuing bank challenge prompt rendered below. Check your phone for the OTP!</p>
-    <iframe name="microform-stepup-iframe" width="420" height="420" style="border:1px solid #999;border-radius:4px;"></iframe>
-    <form id="microform-stepup-form" target="microform-stepup-iframe" method="POST" style="display:none;">
-      <input type="hidden" name="JWT" id="microform-stepup-jwt">
-    </form>
-  </div></section><aside class="checkout-card summary-card"><h2>Booking summary</h2><div class="summary-lines"><div class="summary-line"><span>Check-in</span><strong id="summary-checkin">Select date</strong></div><div class="summary-line"><span>Check-out</span><strong id="summary-checkout">Select date</strong></div><div class="summary-line"><span>Guests</span><strong id="summary-guests">1 adult</strong></div><div class="summary-line"><span>Nights</span><strong id="summary-summary-nights">0 nights</strong></div></div><hr class="summary-rule"><div class="summary-lines" id="summary-line-items"></div><div class="cart-total"><span>Total USD</span><strong id="summary-total-usd">USD --</strong></div><div class="summary-line"><span>Net payable now</span><strong id="summary-payable-usd">USD --</strong></div><div class="summary-line"><span>Remaining at the resort</span><strong id="summary-remaining-usd">USD --</strong></div><div class="currency-box"><p><strong id="npr-rate">USD 1 = NPR --</strong></p><div class="npr-total"><span>NPR payable now</span><strong id="npr-total">NPR --</strong></div><p id="exchange-source" class="rate-source">Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a><br>Rate date: --</p></div><div class="currency-box" id="local-currency-box"><button type="button" id="local-currency-toggle" class="local-currency-toggle">Check the payable in your currency?</button><div class="local-currency-panel"><label for="local-currency">Select currency</label><select id="local-currency"><option value="NPR">NPR</option></select><div class="npr-total"><span id="local-total-label">NPR payable now</span><strong id="local-total">NPR --</strong></div></div></div><div class="compact-security"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><strong>Secure payment processing</strong><span>Payment details are encrypted and handled securely through authorized card networks.</span></div></aside></div>
+   <div id="payment-modal" class="payment-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+     <div class="payment-modal-card">
+       <h2 id="payment-modal-title">Processing your payment</h2>
+       <p id="payment-modal-copy">Do not close this window. This may take a moment.</p>
+       <div id="payment-modal-status" class="payment-modal-status"><span class="payment-spinner"></span><span>Preparing secure payment...</span></div>
+       <div id="payment-success-details" class="payment-success-details"></div>
+       <iframe id="payment-challenge-frame" name="payment-challenge-frame" title="Bank verification"></iframe>
+       <button id="payment-error-toggle" type="button" class="payment-error-toggle">View details <span aria-hidden="true">›</span></button>
+       <div id="payment-error-detail" class="payment-error-detail"></div>
+       <div class="payment-modal-actions"><button id="payment-edit" type="button" class="btn btn-outline" style="display:none">Edit information</button><button id="payment-retry" type="button" class="primary-action" style="display:none;width:auto">Retry payment</button><button id="payment-close" type="button" class="btn btn-outline" style="display:none">Close</button></div>
+     </div>
+   </div>
+
+  </section><aside class="checkout-card summary-card"><h2>Booking summary</h2><div class="summary-lines"><div class="summary-line"><span>Check-in</span><strong id="summary-checkin">Select date</strong></div><div class="summary-line"><span>Check-out</span><strong id="summary-checkout">Select date</strong></div><div class="summary-line"><span>Guests</span><strong id="summary-guests">1 adult</strong></div><div class="summary-line"><span>Nights</span><strong id="summary-summary-nights">0 nights</strong></div></div><hr class="summary-rule"><div class="summary-lines" id="summary-line-items"></div><div class="cart-total"><span>Total USD</span><strong id="summary-total-usd">USD --</strong></div><div class="summary-line"><span>Net payable now</span><strong id="summary-payable-usd">USD --</strong></div><div class="summary-line"><span>Remaining at the resort</span><strong id="summary-remaining-usd">USD --</strong></div><div class="currency-box"><p><strong id="npr-rate">USD 1 = NPR --</strong></p><div class="npr-total"><span>NPR payable now</span><strong id="npr-total">NPR --</strong></div><p id="exchange-source" class="rate-source">Source: <a href="https://www.nrb.org.np/forex/" target="_blank" rel="noopener noreferrer">Nepal Rastra Bank</a><br>Rate date: --</p></div><div class="currency-box" id="local-currency-box"><button type="button" id="local-currency-toggle" class="local-currency-toggle">Check the payable in your currency?</button><div class="local-currency-panel"><label for="local-currency">Select currency</label><select id="local-currency"><option value="NPR">NPR</option></select><div class="npr-total"><span id="local-total-label">NPR payable now</span><strong id="local-total">NPR --</strong></div></div></div><div class="compact-security"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg><strong>Secure payment processing</strong><span>Payment details are encrypted and handled securely through authorized card networks.</span></div></aside></div>
 </main>
   <script>
     const params = new URLSearchParams(location.search);
@@ -317,6 +342,74 @@ export function renderCheckoutPage(url) {
       payButton?.focus({ preventScroll: true });
     });
     let quote, sessionInfo, microform, sessionStarting = false;
+    const paymentModal = document.getElementById('payment-modal');
+    const paymentModalTitle = document.getElementById('payment-modal-title');
+    const paymentModalCopy = document.getElementById('payment-modal-copy');
+    const paymentModalStatus = document.getElementById('payment-modal-status');
+    const challengeFrame = document.getElementById('payment-challenge-frame');
+    const paymentSuccessDetails = document.getElementById('payment-success-details');
+    const paymentErrorToggle = document.getElementById('payment-error-toggle');
+    const paymentErrorDetail = document.getElementById('payment-error-detail');
+    const paymentEdit = document.getElementById('payment-edit');
+    const paymentRetry = document.getElementById('payment-retry');
+    const paymentClose = document.getElementById('payment-close');
+    let modalBodyOverflow = '';
+    let activeStepUp = null;
+    const resetModalControls = () => {
+      challengeFrame.style.display = 'none';
+      paymentSuccessDetails.style.display = 'none';
+      paymentSuccessDetails.textContent = '';
+      paymentErrorToggle.style.display = 'none';
+      paymentErrorDetail.style.display = 'none';
+      paymentErrorDetail.textContent = '';
+      paymentEdit.style.display = 'none';
+      paymentRetry.style.display = 'none';
+      paymentClose.style.display = 'none';
+    };
+    const setPaymentModal = (state, title, copy, status) => {
+      resetModalControls();
+      paymentModal.className = 'payment-modal is-open ' + state;
+      paymentModalTitle.textContent = title;
+      paymentModalCopy.textContent = copy;
+      paymentModalStatus.innerHTML = state === 'success' ? '<span aria-hidden="true">✓</span><span>' + status + '</span>' : state === 'failure' ? '<span aria-hidden="true">!</span><span>' + status + '</span>' : '<span class="payment-spinner"></span><span>' + status + '</span>';
+      if (!modalBodyOverflow) modalBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      stickyPayBar?.classList.remove('is-visible');
+      if (stickyPayButton) stickyPayButton.disabled = true;
+    };
+    const cleanupStepUp = () => {
+      if (!activeStepUp) return;
+      clearTimeout(activeStepUp.timeout);
+      window.removeEventListener('message', activeStepUp.listener);
+      activeStepUp.form?.remove();
+      activeStepUp = null;
+    };
+    const closePaymentModal = () => {
+      cleanupStepUp();
+      paymentModal.className = 'payment-modal';
+      document.body.style.overflow = modalBodyOverflow || 'auto';
+      document.documentElement.style.overflow = '';
+      document.body.style.overflowY = 'auto';
+      modalBodyOverflow = '';
+      if (stickyPayButton) stickyPayButton.disabled = false;
+      updateStickyPay();
+      payButton?.focus({ preventScroll: true });
+    };
+    const openProcessing = () => setPaymentModal('processing', 'Processing your payment', 'Do not close this window. This may take a moment.', 'Preparing secure payment...');
+    const openChallenge = () => { setPaymentModal('challenge', 'Verify your payment', 'Enter the verification code in the secure bank window.', 'Waiting for bank verification...'); challengeFrame.style.display = 'block'; };
+    const openFinalizing = () => setPaymentModal('finalizing', 'Finalizing your payment', 'Your bank verification is complete. We are confirming the transaction securely.', 'Confirming payment...');
+    const openFailure = (message, detail) => { cleanupStepUp(); setPaymentModal('failure', 'Payment could not be completed', message, 'Payment failed'); paymentErrorDetail.textContent = String(detail || 'Payment request failed').slice(0, 500); paymentErrorToggle.style.display = 'inline-block'; paymentRetry.style.display = 'inline-block'; paymentEdit.style.display = 'inline-block'; };
+    const openSuccess = () => { setPaymentModal('success', 'Payment confirmed', 'Your booking is secured. Keep this reference for future communication.', 'Payment successful'); paymentSuccessDetails.innerHTML = '<div>Booking reference: <strong>' + (sessionInfo?.bookingId || '--') + '</strong></div><div>Stay: <strong>' + (quoteOptions.checkin || '--') + ' to ' + (quoteOptions.checkout || '--') + '</strong></div><div>Catalog total: <strong>USD ' + Number(quote?.total || 0).toFixed(2) + '</strong></div><div>Amount paid: <strong>NPR ' + Number(document.getElementById('pay-button-label').dataset.payableNpr || 0).toFixed(2) + '</strong></div>'; paymentSuccessDetails.style.display = 'grid'; paymentClose.textContent = 'Continue'; paymentClose.style.display = 'inline-block'; };
+    paymentClose.addEventListener('click', () => { const successful = paymentModal.classList.contains('success'); closePaymentModal(); if (successful) location.href = '/'; });
+    paymentEdit.addEventListener('click', () => {
+      closePaymentModal();
+      document.documentElement.style.overflow = 'auto';
+      document.body.style.overflow = 'auto';
+      document.body.style.overflowY = 'auto';
+      document.querySelector('.field-error, #bill-first')?.focus();
+    });
+    paymentRetry.addEventListener('click', () => { closePaymentModal(); payButton?.click(); });
+    paymentErrorToggle.addEventListener('click', () => { const expanded = paymentErrorDetail.style.display === 'block'; paymentErrorDetail.style.display = expanded ? 'none' : 'block'; paymentErrorToggle.textContent = expanded ? 'View details ›' : 'Hide details ^'; });
     const bookingStorageKey = 'booking_' + btoa(unescape(encodeURIComponent(JSON.stringify({ items, ...quoteOptions, payAmount: 'deposit' })))).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 180);
     const guestPayload = () => ({
       firstName: document.getElementById('bill-first').value.trim(),
@@ -508,8 +601,11 @@ export function renderCheckoutPage(url) {
         }
       });
     });
-    document.getElementById('pay-btn').addEventListener('click', () => {
+    const waitForModalPaint = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    document.getElementById('pay-btn').addEventListener('click', async () => {
       if (!validateCheckoutFields()) return;
+      openProcessing();
+      await waitForModalPaint();
        const currency = 'NPR';
       const payAmount = document.querySelector('input[name=pay]:checked').value;
        const amount = Number(document.getElementById('pay-button-label').dataset.payableNpr);
@@ -528,7 +624,7 @@ export function renderCheckoutPage(url) {
         expirationMonth: document.getElementById('exp-month').value,
         expirationYear: document.getElementById('exp-year').value
       }, async (err, token) => {
-        if (err) { document.getElementById('msg').textContent = 'Card error: ' + err.message; return; }
+        if (err) { openFailure('We could not securely read your card details.', err.message); return; }
 
         try {
           // Create the business booking only after the customer explicitly
@@ -562,10 +658,7 @@ export function renderCheckoutPage(url) {
             body: JSON.stringify({ transientToken: token })
           }).then(r => r.json());
 
-          if (!setupResp.referenceId || !setupResp.deviceDataCollectionUrl) {
-            document.getElementById('msg').textContent = 'Auth setup failed: missing referenceId or DDC URL';
-            return;
-          }
+           if (!setupResp.referenceId || !setupResp.deviceDataCollectionUrl) throw new Error('Auth setup failed: missing referenceId or DDC URL');
 
           // Step 2: DDC (hidden iframe)
           const ddcFrame = document.createElement('iframe');
@@ -611,14 +704,10 @@ export function renderCheckoutPage(url) {
           // Step 4: Step-Up (if required)
           let authTxId = '';
           if (cai.stepUpUrl && (cai.accessToken || cai.token)) {
-            document.getElementById('stepup-section').style.display = 'block';
-            const stepUpFrame = document.createElement('iframe');
-            stepUpFrame.name = 'microform-stepup-iframe';
-            stepUpFrame.style.display = 'none';
-            document.body.appendChild(stepUpFrame);
-            const stepUpForm = document.createElement('form');
-            stepUpForm.method = 'POST'; stepUpForm.action = cai.stepUpUrl;
-            stepUpForm.target = 'microform-stepup-iframe'; stepUpForm.style.display = 'none';
+             openChallenge();
+             const stepUpForm = document.createElement('form');
+             stepUpForm.method = 'POST'; stepUpForm.action = cai.stepUpUrl;
+             stepUpForm.target = 'payment-challenge-frame'; stepUpForm.style.display = 'none';
             const stepUpJwt = document.createElement('input');
             stepUpJwt.type = 'hidden'; stepUpJwt.name = 'JWT'; stepUpJwt.value = cai.accessToken || cai.token;
             stepUpForm.appendChild(stepUpJwt);
@@ -628,15 +717,18 @@ export function renderCheckoutPage(url) {
               const listener = (ev) => {
                 let data = ev.data;
                 if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) {} }
-                if (data && data.type === 'stepup-complete') {
-                  window.removeEventListener('message', listener);
-                  document.body.removeChild(stepUpFrame); document.body.removeChild(stepUpForm);
-                  resolve(data);
-                }
-              };
-              window.addEventListener('message', listener);
-              stepUpForm.submit();
-            });
+                 if (data && data.type === 'stepup-complete') {
+                   cleanupStepUp();
+                   resolve(data);
+                 }
+               };
+               const timeout = setTimeout(() => { cleanupStepUp(); resolve({ error: 'Bank verification timed out.' }); }, 300000);
+               activeStepUp = { listener, timeout, form: stepUpForm };
+               window.addEventListener('message', listener);
+               stepUpForm.submit();
+             });
+             if (stepUpResult.error) throw new Error(stepUpResult.error);
+             openFinalizing();
             authTxId = stepUpResult.transactionId || cai.authenticationTransactionId || cai.referenceId;
           } else {
             authTxId = cai.authenticationTransactionId || cai.referenceId;
@@ -665,18 +757,22 @@ export function renderCheckoutPage(url) {
           if (authFields && authFields.cavv) {
             chargePayload.consumerAuthenticationInformation = authFields;
           }
-           const chargeResp = await fetch('/api/microform/charge', {
+            openFinalizing();
+            const chargeResp = await fetch('/api/microform/charge', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(chargePayload)
            }).then(r => r.json());
 
            if (!chargeResp.error) sessionStorage.removeItem(bookingStorageKey);
 
-           document.getElementById('msg').textContent = chargeResp.error
-            ? ('Payment failed: ' + JSON.stringify(chargeResp.detail))
-            : 'Payment confirmed — booking is paid.';
-        } catch (e) {
-          document.getElementById('msg').textContent = 'Payment flow error: ' + e.message;
+            if (chargeResp.error) {
+              const detail = typeof chargeResp.detail === 'string' ? chargeResp.detail : JSON.stringify(chargeResp.detail || chargeResp.error, null, 2);
+              openFailure('No money was confirmed as paid. You can try again.', detail);
+            } else {
+              openSuccess();
+            }
+         } catch (e) {
+           openFailure('We could not complete the payment request. No confirmation was received.', e.message);
           console.error('Checkout auth flow error:', e);
         }
       });
